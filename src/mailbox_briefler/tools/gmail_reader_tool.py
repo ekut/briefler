@@ -788,6 +788,83 @@ class GmailReaderTool(BaseTool):
             # Return empty string instead of raising to allow processing to continue
             return ''
     
+    def _format_output(self, messages: list, sender_email: str) -> str:
+        """Format message list into readable string output.
+        
+        This method takes a list of processed message dictionaries and formats them
+        into a human-readable string that can be consumed by CrewAI agents. It includes:
+        - A header with message count and sender email
+        - Individual message sections with headers and body
+        - Attachment information if present
+        - Appropriate message if no unread messages exist
+        
+        Args:
+            messages: List of message dictionaries with extracted data.
+            sender_email: The email address of the sender (for header).
+        
+        Returns:
+            Formatted string containing all message information, or a message
+            indicating no unread messages were found.
+        """
+        # Check if messages list is empty
+        if not messages:
+            # Return "No unread messages" message if empty
+            return f"No unread messages found from {sender_email}"
+        
+        # Count total messages
+        message_count = len(messages)
+        
+        # Create header with message count and sender
+        output_lines = [
+            f"Found {message_count} unread message{'s' if message_count != 1 else ''} from {sender_email}:",
+            ""
+        ]
+        
+        # Format individual messages
+        for idx, message in enumerate(messages, 1):
+            # Add separator between messages
+            output_lines.append("---")
+            output_lines.append(f"Message {idx}:")
+            
+            # Include Subject, From, Date headers
+            subject = message.get('subject', '(No Subject)')
+            from_header = message.get('from', '(Unknown Sender)')
+            date = message.get('date', '(Unknown Date)')
+            
+            output_lines.append(f"Subject: {subject}")
+            output_lines.append(f"From: {from_header}")
+            output_lines.append(f"Date: {date}")
+            output_lines.append("")
+            
+            # Include decoded body content
+            body = message.get('body', '')
+            if body:
+                output_lines.append(body)
+            else:
+                output_lines.append("(No body content)")
+            
+            output_lines.append("")
+            
+            # Format attachment information
+            attachments = message.get('attachments', [])
+            if attachments:
+                # Count attachments for each message
+                attachment_count = len(attachments)
+                output_lines.append(f"Attachments: {attachment_count} file{'s' if attachment_count != 1 else ''}")
+                
+                # List attachment filenames with metadata
+                for attachment in attachments:
+                    filename = attachment.get('filename', 'Unknown')
+                    mime_type = attachment.get('mime_type', 'Unknown')
+                    size = attachment.get('size', 0)
+                    
+                    # Include mime type and size
+                    output_lines.append(f"- {filename} ({mime_type}, {size} bytes)")
+                
+                output_lines.append("")
+        
+        return "\n".join(output_lines)
+    
     def _run(self, sender_email: str) -> str:
         """Execute the tool to retrieve unread messages from a sender.
         

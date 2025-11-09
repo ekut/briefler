@@ -6,7 +6,7 @@
   - Add credentials.json and token.json to .gitignore
   - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 2. Create GmailReaderTool base structure
+- [x] 2. Create GmailReaderTool base structure
   - [x] 2.1 Create gmail_reader_tool.py file in src/mailbox_briefler/tools/
     - Define GmailReaderTool class inheriting from BaseTool
     - Set name and description class attributes
@@ -19,7 +19,7 @@
     - Raise ValueError with descriptive message if configuration is missing
     - _Requirements: 1.1, 1.2, 1.3_
 
-- [ ] 3. Implement Gmail API authentication
+- [x] 3. Implement Gmail API authentication
   - [x] 3.1 Create _initialize_gmail_service method
     - Define Gmail API scopes (gmail.readonly)
     - Check if token.json exists at configured path
@@ -46,7 +46,7 @@
     - Raise descriptive exceptions for authentication failures
     - _Requirements: 4.1_
 
-- [ ] 4. Implement message retrieval functionality
+- [x] 4. Implement message retrieval functionality
   - [x] 4.1 Create _get_unread_messages method
     - Construct Gmail API query: "is:unread from:{sender_email}"
     - Call users().messages().list() with query
@@ -73,7 +73,7 @@
     - Implement retry logic with maximum 3 attempts
     - _Requirements: 2.5, 4.2, 4.4_
 
-- [ ] 5. Implement message parsing and data extraction
+- [x] 5. Implement message parsing and data extraction
   - [x] 5.1 Create _extract_message_data method
     - Extract message ID and thread ID
     - Extract snippet for preview
@@ -120,61 +120,57 @@
     - Do not download attachment content
     - _Requirements: 5.5_
 
-- [ ] 6. Implement output formatting
-  - [ ] 6.1 Create _format_output method
+- [x] 6. Implement output formatting
+  - [x] 6.1 Create _format_output method
     - Check if messages list is empty
     - Return "No unread messages" message if empty
     - Count total messages
     - Create header with message count and sender
     - _Requirements: 2.4_
   
-  - [ ] 6.2 Format individual messages
+  - [x] 6.2 Format individual messages
     - For each message, create formatted section
     - Include Subject, From, Date headers
     - Include decoded body content
     - Add separator between messages
     - _Requirements: 2.2, 3.5_
   
-  - [ ] 6.3 Format attachment information
+  - [x] 6.3 Format attachment information
     - Count attachments for each message
     - List attachment filenames with metadata
     - Include mime type and size
     - _Requirements: 5.5_
 
 - [ ] 7. Implement main _run method
-  - [ ] 7.1 Create _run method signature
-    - Accept sender_email as string parameter
-    - Define return type as string
-    - _Requirements: 3.4_
-  
-  - [ ] 7.2 Add input validation
+  - [ ] 7.1 Add input validation
     - Check if sender_email is empty or None
     - Validate email format using basic regex
     - Raise ValueError for invalid input
     - _Requirements: 4.3_
   
-  - [ ] 7.3 Orchestrate message retrieval and formatting
+  - [ ] 7.2 Orchestrate message retrieval and formatting
     - Call _get_unread_messages with sender_email
     - For each message, call _extract_message_data
-    - Call _format_output with processed messages
+    - Decode message body using _decode_message_body for each message
+    - Call _format_output with processed messages and sender_email
     - Return formatted string
     - _Requirements: 3.4, 3.5_
   
-  - [ ] 7.4 Add comprehensive error handling
+  - [ ] 7.3 Add comprehensive error handling
     - Wrap operations in try-except block
     - Catch and handle specific exceptions
     - Return user-friendly error messages
     - Log errors with full context
     - _Requirements: 4.1, 4.2, 4.4, 4.5_
 
-- [ ] 8. Add logging and monitoring
-  - [ ] 8.1 Set up logging configuration
+- [x] 8. Add logging and monitoring
+  - [x] 8.1 Set up logging configuration
     - Import logging module
     - Create logger instance for the module
     - Configure log level from environment or default to INFO
     - _Requirements: 4.5_
   
-  - [ ] 8.2 Add logging statements
+  - [x] 8.2 Add logging statements
     - Log tool initialization
     - Log authentication events
     - Log API calls and responses (metadata only)
@@ -182,8 +178,8 @@
     - Do not log email content for security
     - _Requirements: 4.5_
 
-- [ ] 9. Update package initialization
-  - [ ] 9.1 Update src/mailbox_briefler/tools/__init__.py
+- [x] 9. Update package initialization
+  - [x] 9.1 Update src/mailbox_briefler/tools/__init__.py
     - Import GmailReaderTool
     - Add to __all__ list for public API
     - _Requirements: 3.1_
@@ -195,7 +191,7 @@
     - Demonstrate agent task using the tool
     - _Requirements: 3.1, 3.2, 3.3_
   
-  - [ ] 10.2 Add docstrings
+  - [x] 10.2 Add docstrings
     - Add module-level docstring
     - Add class docstring with usage examples
     - Add method docstrings with parameters and returns
