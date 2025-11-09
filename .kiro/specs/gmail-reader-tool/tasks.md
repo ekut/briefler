@@ -74,46 +74,46 @@
     - _Requirements: 2.5, 4.2, 4.4_
 
 - [ ] 5. Implement message parsing and data extraction
-  - [ ] 5.1 Create _extract_message_data method
+  - [x] 5.1 Create _extract_message_data method
     - Extract message ID and thread ID
     - Extract snippet for preview
     - Parse payload to get headers and body
     - Return structured dictionary with message data
     - _Requirements: 2.2_
   
-  - [ ] 5.2 Implement header extraction
+  - [x] 5.2 Implement header extraction
     - Iterate through payload headers
     - Extract Subject, From, and Date headers
     - Store in message data dictionary
     - _Requirements: 2.2_
   
-  - [ ] 5.3 Create _decode_message_body method
+  - [x] 5.3 Create _decode_message_body method
     - Check payload mimeType to determine message format
     - Handle plain text messages (text/plain)
     - Handle HTML messages (text/html)
     - Handle multipart messages (multipart/*)
     - _Requirements: 5.1, 5.2, 5.3_
   
-  - [ ] 5.4 Implement body content decoding
+  - [x] 5.4 Implement body content decoding
     - Extract body data from payload
     - Decode base64url encoded content
     - Handle character encoding (UTF-8)
     - Return decoded text
     - _Requirements: 5.4_
   
-  - [ ] 5.5 Implement HTML to text conversion
+  - [x] 5.5 Implement HTML to text conversion
     - For HTML content, strip HTML tags
     - Convert common HTML entities
     - Preserve basic formatting where possible
     - _Requirements: 5.2_
   
-  - [ ] 5.6 Handle multipart messages
+  - [x] 5.6 Handle multipart messages
     - Recursively traverse message parts
     - Prioritize text/plain over text/html
     - Extract content from appropriate part
     - _Requirements: 5.3_
   
-  - [ ] 5.7 Extract attachment metadata
+  - [x] 5.7 Extract attachment metadata
     - Identify parts with filename in payload
     - Extract filename, mimeType, and size
     - Add to attachments list in message data

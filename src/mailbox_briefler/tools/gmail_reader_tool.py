@@ -7,6 +7,9 @@ It integrates with CrewAI framework to enable AI agents to access and process em
 import os
 import time
 import logging
+import base64
+import re
+import html
 from typing import Type, Optional, Callable, Any
 
 from pydantic import BaseModel, Field
@@ -423,6 +426,367 @@ class GmailReaderTool(BaseTool):
             raise RuntimeError(
                 f"Failed to retrieve messages from {sender_email}: {str(e)}"
             )
+    
+    def _extract_attachments(self, parts: list) -> list:
+        """Extract attachment metadata from message parts.
+        
+        This method recursively traverses message parts to identify attachments
+        and extract their metadata (filename, mimeType, size). It does not
+        download the actual attachment content.
+        
+        Args:
+            parts: List of message parts from Gmail API payload.
+        
+        Returns:
+            List of attachment metadata dictionaries with the following structure:
+            [
+                {
+                    "filename": str,    # Name of the attachment file
+                    "mime_type": str,   # MIME type of the attachment
+                    "size": int         # Size in bytes
+                },
+                ...
+            ]
+        """
+        attachments = []
+        
+        if not parts:
+            return attachments
+        
+        for part in parts:
+            # Identify parts with filename in payload
+            filename = part.get('filename', '')
+            
+            # If part has a filename, it's an attachment
+            if filename:
+                # Extract filename, mimeType, and size
+                mime_type = part.get('mimeType', '')
+                body = part.get('body', {})
+                size = body.get('size', 0)
+                
+                # Add to attachments list in message data
+                attachment_info = {
+                    'filename': filename,
+                    'mime_type': mime_type,
+                    'size': size
+                }
+                attachments.append(attachment_info)
+                
+                logger.debug(f"Found attachment: {filename} ({mime_type}, {size} bytes)")
+            
+            # Recursively check nested parts (for multipart messages)
+            nested_parts = part.get('parts', [])
+            if nested_parts:
+                nested_attachments = self._extract_attachments(nested_parts)
+                attachments.extend(nested_attachments)
+        
+        return attachments
+    
+    def _extract_message_data(self, message: dict) -> dict:
+        """Extract structured data from a Gmail message.
+        
+        This method parses a Gmail API message object and extracts key information
+        including message ID, thread ID, snippet, headers (Subject, From, Date),
+        body content, and attachment metadata. It returns a structured dictionary
+        that can be easily processed by other methods.
+        
+        Args:
+            message: Gmail API message dictionary with full format.
+        
+        Returns:
+            Dictionary containing extracted message data with the following structure:
+            {
+                "id": str,              # Gmail message ID
+                "thread_id": str,       # Thread ID
+                "snippet": str,         # Short preview
+                "subject": str,         # Email subject
+                "from": str,            # Sender email and name
+                "date": str,            # Date sent
+                "body": str,            # Decoded message body (to be populated by _decode_message_body)
+                "attachments": []       # List of attachment metadata
+            }
+        
+        Raises:
+            KeyError: If required message fields are missing.
+            Exception: For other parsing errors.
+        """
+        try:
+            # Extract message ID and thread ID
+            message_id = message.get('id', '')
+            thread_id = message.get('threadId', '')
+            
+            # Extract snippet for preview
+            snippet = message.get('snippet', '')
+            
+            # Parse payload to get headers
+            payload = message.get('payload', {})
+            headers = payload.get('headers', [])
+            
+            # Initialize message data dictionary
+            message_data = {
+                'id': message_id,
+                'thread_id': thread_id,
+                'snippet': snippet,
+                'subject': '',
+                'from': '',
+                'date': '',
+                'body': '',
+                'attachments': []
+            }
+            
+            # Extract Subject, From, and Date headers
+            for header in headers:
+                header_name = header.get('name', '').lower()
+                header_value = header.get('value', '')
+                
+                if header_name == 'subject':
+                    message_data['subject'] = header_value
+                elif header_name == 'from':
+                    message_data['from'] = header_value
+                elif header_name == 'date':
+                    message_data['date'] = header_value
+            
+            # Extract attachment metadata from payload parts
+            parts = payload.get('parts', [])
+            if parts:
+                message_data['attachments'] = self._extract_attachments(parts)
+            
+            # Note: Body will be decoded by _decode_message_body method (task 5.3-5.6)
+            
+            logger.debug(f"Extracted data for message {message_id}: {message_data['subject']}")
+            
+            # Return structured dictionary with message data
+            return message_data
+            
+        except KeyError as e:
+            logger.error(f"Missing required field in message: {str(e)}", exc_info=True)
+            raise KeyError(f"Failed to extract message data: missing field {str(e)}")
+        except Exception as e:
+            logger.error(f"Error extracting message data: {str(e)}", exc_info=True)
+            raise Exception(f"Failed to extract message data: {str(e)}")
+    
+    def _decode_body_content(self, body_data: str) -> str:
+        """Decode base64url encoded body content.
+        
+        This method handles the actual decoding of Gmail message body content:
+        1. Extracts body data from the payload (passed as parameter)
+        2. Decodes base64url encoded content
+        3. Handles character encoding (UTF-8)
+        4. Returns decoded text
+        
+        Gmail API returns message body content encoded in base64url format.
+        This method decodes that content and handles UTF-8 character encoding
+        with error replacement for any invalid characters.
+        
+        Args:
+            body_data: Base64url encoded string from Gmail API payload body.
+        
+        Returns:
+            Decoded text as a UTF-8 string. Returns empty string if body_data is empty.
+        
+        Raises:
+            Exception: For decoding errors (logged but not raised to allow processing to continue).
+        """
+        # Check if body_data is empty
+        if not body_data:
+            return ''
+        
+        try:
+            # Decode base64url encoded content
+            # Gmail uses base64url encoding (URL-safe base64 without padding)
+            decoded_bytes = base64.urlsafe_b64decode(body_data)
+            
+            # Handle character encoding (UTF-8)
+            # Use 'replace' error handling to substitute invalid UTF-8 sequences
+            # with the Unicode replacement character (U+FFFD)
+            decoded_text = decoded_bytes.decode('utf-8', errors='replace')
+            
+            # Return decoded text
+            return decoded_text
+            
+        except Exception as e:
+            # Log error but return empty string to allow processing to continue
+            logger.error(f"Error decoding body content: {str(e)}", exc_info=True)
+            return ''
+    
+    def _html_to_text(self, html_content: str) -> str:
+        """Convert HTML content to plain text.
+        
+        This method strips HTML tags, converts common HTML entities, and preserves
+        basic formatting where possible. It handles:
+        - Block-level elements (p, div, br, etc.) by adding newlines
+        - List items by adding bullet points
+        - Links by preserving the URL
+        - Common HTML entities (&nbsp;, &amp;, etc.)
+        
+        Args:
+            html_content: HTML string to convert to plain text.
+        
+        Returns:
+            Plain text version of the HTML content with basic formatting preserved.
+        """
+        if not html_content:
+            return ''
+        
+        try:
+            # Convert common HTML entities first
+            text = html.unescape(html_content)
+            
+            # Replace <br> and <br/> tags with newlines
+            text = re.sub(r'<br\s*/?>', '\n', text, flags=re.IGNORECASE)
+            
+            # Replace closing block-level tags with newlines to preserve paragraph structure
+            block_tags = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre']
+            for tag in block_tags:
+                text = re.sub(f'</{tag}>', '\n', text, flags=re.IGNORECASE)
+            
+            # Replace list items with bullet points
+            text = re.sub(r'<li[^>]*>', '\n• ', text, flags=re.IGNORECASE)
+            text = re.sub(r'</li>', '', text, flags=re.IGNORECASE)
+            
+            # Replace horizontal rules with a line
+            text = re.sub(r'<hr[^>]*>', '\n---\n', text, flags=re.IGNORECASE)
+            
+            # Extract link text and preserve URLs in parentheses
+            # Match <a href="url">text</a> and convert to "text (url)"
+            text = re.sub(
+                r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>([^<]*)</a>',
+                r'\2 (\1)',
+                text,
+                flags=re.IGNORECASE
+            )
+            
+            # Strip all remaining HTML tags
+            text = re.sub(r'<[^>]+>', '', text)
+            
+            # Clean up excessive whitespace
+            # Replace multiple spaces with single space
+            text = re.sub(r' +', ' ', text)
+            
+            # Replace multiple newlines with maximum of two newlines
+            text = re.sub(r'\n\s*\n\s*\n+', '\n\n', text)
+            
+            # Strip leading/trailing whitespace from each line
+            lines = [line.strip() for line in text.split('\n')]
+            text = '\n'.join(lines)
+            
+            # Strip leading/trailing whitespace from entire text
+            text = text.strip()
+            
+            return text
+            
+        except Exception as e:
+            logger.error(f"Error converting HTML to text: {str(e)}", exc_info=True)
+            # Return original content if conversion fails
+            return html_content
+    
+    def _decode_message_body(self, payload: dict) -> str:
+        """Decode message body from Gmail API payload.
+        
+        This method handles different message formats by checking the payload mimeType:
+        - Plain text messages (text/plain): Directly decodes the body
+        - HTML messages (text/html): Decodes HTML content and converts to text
+        - Multipart messages (multipart/*): Recursively processes parts (handled by task 5.6)
+        
+        The method determines the message format and routes to the appropriate
+        decoding logic based on the mimeType.
+        
+        Args:
+            payload: Gmail API message payload dictionary containing mimeType and body/parts.
+        
+        Returns:
+            Decoded message body as a string. Returns empty string if no body content found.
+        
+        Raises:
+            Exception: For decoding errors or unsupported formats.
+        """
+        try:
+            # Check payload mimeType to determine message format
+            mime_type = payload.get('mimeType', '')
+            
+            logger.debug(f"Decoding message body with mimeType: {mime_type}")
+            
+            # Handle plain text messages (text/plain)
+            if mime_type == 'text/plain':
+                # Extract body data from payload
+                body_data = payload.get('body', {}).get('data', '')
+                if body_data:
+                    # Decode base64url encoded content and handle UTF-8 encoding
+                    decoded_text = self._decode_body_content(body_data)
+                    return decoded_text
+                return ''
+            
+            # Handle HTML messages (text/html)
+            elif mime_type == 'text/html':
+                # Extract body data from payload
+                body_data = payload.get('body', {}).get('data', '')
+                if body_data:
+                    # Decode base64url encoded content and handle UTF-8 encoding
+                    decoded_html = self._decode_body_content(body_data)
+                    # Convert HTML to text
+                    text = self._html_to_text(decoded_html)
+                    return text
+                return ''
+            
+            # Handle multipart messages (multipart/*)
+            elif mime_type.startswith('multipart/'):
+                # Get parts from payload
+                parts = payload.get('parts', [])
+                if not parts:
+                    logger.debug("Multipart message has no parts")
+                    return ''
+                
+                # Recursively traverse message parts
+                # Prioritize text/plain over text/html
+                plain_text_body = None
+                html_body = None
+                
+                def extract_from_parts(parts_list):
+                    """Recursively extract text from message parts."""
+                    nonlocal plain_text_body, html_body
+                    
+                    for part in parts_list:
+                        part_mime_type = part.get('mimeType', '')
+                        
+                        # Handle text/plain parts
+                        if part_mime_type == 'text/plain':
+                            body_data = part.get('body', {}).get('data', '')
+                            if body_data and not plain_text_body:
+                                plain_text_body = self._decode_body_content(body_data)
+                        
+                        # Handle text/html parts
+                        elif part_mime_type == 'text/html':
+                            body_data = part.get('body', {}).get('data', '')
+                            if body_data and not html_body:
+                                decoded_html = self._decode_body_content(body_data)
+                                html_body = self._html_to_text(decoded_html)
+                        
+                        # Recursively handle nested multipart
+                        elif part_mime_type.startswith('multipart/'):
+                            nested_parts = part.get('parts', [])
+                            if nested_parts:
+                                extract_from_parts(nested_parts)
+                
+                # Extract content from all parts recursively
+                extract_from_parts(parts)
+                
+                # Prioritize text/plain over text/html
+                if plain_text_body:
+                    return plain_text_body
+                elif html_body:
+                    return html_body
+                
+                return ''
+            
+            # Unsupported or unknown mime type
+            else:
+                logger.warning(f"Unsupported mimeType: {mime_type}")
+                return ''
+        
+        except Exception as e:
+            logger.error(f"Error decoding message body: {str(e)}", exc_info=True)
+            # Return empty string instead of raising to allow processing to continue
+            return ''
     
     def _run(self, sender_email: str) -> str:
         """Execute the tool to retrieve unread messages from a sender.
