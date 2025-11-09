@@ -888,25 +888,122 @@ class GmailReaderTool(BaseTool):
         Raises:
             ValueError: If sender_email is invalid or empty.
         """
-        # Check if sender_email is empty or None
-        if not sender_email or sender_email.strip() == '':
-            raise ValueError(
-                "sender_email parameter is required and cannot be empty. "
-                "Please provide a valid email address."
+        try:
+            # Check if sender_email is empty or None
+            if not sender_email or sender_email.strip() == '':
+                raise ValueError(
+                    "sender_email parameter is required and cannot be empty. "
+                    "Please provide a valid email address."
+                )
+            
+            # Validate email format using basic regex
+            # Basic email regex pattern: local_part@domain
+            # Allows alphanumeric, dots, hyphens, underscores, and plus signs in local part
+            # Requires @ symbol and domain with at least one dot
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            
+            if not re.match(email_pattern, sender_email.strip()):
+                # Raise ValueError for invalid input
+                raise ValueError(
+                    f"Invalid email format: '{sender_email}'. "
+                    "Please provide a valid email address (e.g., user@example.com)."
+                )
+            
+            # Normalize sender_email
+            sender_email = sender_email.strip()
+            
+            logger.info(f"Starting message retrieval for sender: {sender_email}")
+            
+            try:
+                # Call _get_unread_messages with sender_email
+                raw_messages = self._get_unread_messages(sender_email)
+            except RuntimeError as e:
+                # Handle authentication and API errors from _get_unread_messages
+                logger.error(
+                    f"Failed to retrieve messages from {sender_email}: {str(e)}",
+                    exc_info=True
+                )
+                return f"Error retrieving messages: {str(e)}"
+            except FileNotFoundError as e:
+                # Handle missing credentials file
+                logger.error(
+                    f"Credentials file not found: {str(e)}",
+                    exc_info=True
+                )
+                return (
+                    f"Configuration error: {str(e)}\n"
+                    "Please ensure your credentials.json file is in the correct location."
+                )
+            except Exception as e:
+                # Handle unexpected errors during message retrieval
+                logger.error(
+                    f"Unexpected error retrieving messages from {sender_email}: {str(e)}",
+                    exc_info=True
+                )
+                return f"An unexpected error occurred while retrieving messages: {str(e)}"
+            
+            # Process each message: extract data and decode body
+            processed_messages = []
+            for raw_message in raw_messages:
+                try:
+                    # For each message, call _extract_message_data
+                    message_data = self._extract_message_data(raw_message)
+                    
+                    # Decode message body using _decode_message_body for each message
+                    payload = raw_message.get('payload', {})
+                    decoded_body = self._decode_message_body(payload)
+                    
+                    # Update message_data with decoded body
+                    message_data['body'] = decoded_body
+                    
+                    processed_messages.append(message_data)
+                    
+                except KeyError as e:
+                    # Handle missing required fields in message
+                    logger.error(
+                        f"Failed to extract data from message {raw_message.get('id', 'unknown')}: {str(e)}",
+                        exc_info=True
+                    )
+                    # Continue processing other messages instead of failing completely
+                    continue
+                except Exception as e:
+                    # Handle unexpected errors during message processing
+                    logger.error(
+                        f"Unexpected error processing message {raw_message.get('id', 'unknown')}: {str(e)}",
+                        exc_info=True
+                    )
+                    # Continue processing other messages
+                    continue
+            
+            logger.info(f"Processed {len(processed_messages)} message(s)")
+            
+            try:
+                # Call _format_output with processed messages and sender_email
+                formatted_output = self._format_output(processed_messages, sender_email)
+                
+                # Return formatted string
+                return formatted_output
+                
+            except Exception as e:
+                # Handle errors during output formatting
+                logger.error(
+                    f"Error formatting output: {str(e)}",
+                    exc_info=True
+                )
+                return f"Error formatting message output: {str(e)}"
+        
+        except ValueError as e:
+            # Handle validation errors (invalid email format, empty input)
+            logger.error(f"Validation error: {str(e)}")
+            return f"Validation error: {str(e)}"
+        
+        except Exception as e:
+            # Catch any unexpected errors at the top level
+            logger.error(
+                f"Unexpected error in _run method for sender {sender_email}: {str(e)}",
+                exc_info=True
             )
-        
-        # Validate email format using basic regex
-        # Basic email regex pattern: local_part@domain
-        # Allows alphanumeric, dots, hyphens, underscores, and plus signs in local part
-        # Requires @ symbol and domain with at least one dot
-        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        
-        if not re.match(email_pattern, sender_email.strip()):
-            # Raise ValueError for invalid input
-            raise ValueError(
-                f"Invalid email format: '{sender_email}'. "
-                "Please provide a valid email address (e.g., user@example.com)."
+            return (
+                f"An unexpected error occurred: {str(e)}\n"
+                "Please check the logs for more details."
             )
-        
-        # Implementation will be added in subsequent tasks
-        return f"Gmail Reader Tool initialized. Ready to read messages from {sender_email.strip()}"
