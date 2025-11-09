@@ -142,7 +142,7 @@
     - _Requirements: 5.5_
 
 - [ ] 7. Implement main _run method
-  - [ ] 7.1 Add input validation
+  - [x] 7.1 Add input validation
     - Check if sender_email is empty or None
     - Validate email format using basic regex
     - Raise ValueError for invalid input

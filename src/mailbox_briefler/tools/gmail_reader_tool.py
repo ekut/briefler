@@ -10,7 +10,7 @@ import logging
 import base64
 import re
 import html
-from typing import Type, Optional, Callable, Any
+from typing import Type, Optional, Callable, Any, ClassVar
 
 from pydantic import BaseModel, Field
 from crewai.tools import BaseTool
@@ -61,7 +61,12 @@ class GmailReaderTool(BaseTool):
     args_schema: Type[BaseModel] = GmailReaderToolInput
     
     # Gmail API scopes
-    SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
+    SCOPES: ClassVar[list] = ['https://www.googleapis.com/auth/gmail.readonly']
+    
+    # Instance attributes
+    credentials_path: Optional[str] = None
+    token_path: Optional[str] = None
+    service: Optional[Resource] = None
     
     def __init__(self, **kwargs):
         """Initialize the Gmail Reader Tool.
@@ -868,11 +873,40 @@ class GmailReaderTool(BaseTool):
     def _run(self, sender_email: str) -> str:
         """Execute the tool to retrieve unread messages from a sender.
         
+        This method orchestrates the entire message retrieval process:
+        1. Validates the sender_email input
+        2. Retrieves unread messages from Gmail API
+        3. Extracts and decodes message data
+        4. Formats the output for agent consumption
+        
         Args:
             sender_email: The email address of the sender to filter messages from.
         
         Returns:
             Formatted string containing unread messages or error message.
+        
+        Raises:
+            ValueError: If sender_email is invalid or empty.
         """
+        # Check if sender_email is empty or None
+        if not sender_email or sender_email.strip() == '':
+            raise ValueError(
+                "sender_email parameter is required and cannot be empty. "
+                "Please provide a valid email address."
+            )
+        
+        # Validate email format using basic regex
+        # Basic email regex pattern: local_part@domain
+        # Allows alphanumeric, dots, hyphens, underscores, and plus signs in local part
+        # Requires @ symbol and domain with at least one dot
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        
+        if not re.match(email_pattern, sender_email.strip()):
+            # Raise ValueError for invalid input
+            raise ValueError(
+                f"Invalid email format: '{sender_email}'. "
+                "Please provide a valid email address (e.g., user@example.com)."
+            )
+        
         # Implementation will be added in subsequent tasks
-        return f"Gmail Reader Tool initialized. Ready to read messages from {sender_email}"
+        return f"Gmail Reader Tool initialized. Ready to read messages from {sender_email.strip()}"
