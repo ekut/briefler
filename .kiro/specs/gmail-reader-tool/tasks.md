@@ -7,13 +7,13 @@
   - _Requirements: 1.1, 1.2, 1.3_
 
 - [ ] 2. Create GmailReaderTool base structure
-  - [ ] 2.1 Create gmail_reader_tool.py file in src/mailbox_briefler/tools/
+  - [x] 2.1 Create gmail_reader_tool.py file in src/mailbox_briefler/tools/
     - Define GmailReaderTool class inheriting from BaseTool
     - Set name and description class attributes
     - Define __init__ method to load environment variables
     - _Requirements: 3.1, 3.2, 3.3_
   
-  - [ ] 2.2 Implement configuration loading and validation
+  - [x] 2.2 Implement configuration loading and validation
     - Load GMAIL_CREDENTIALS_PATH and GMAIL_TOKEN_PATH from environment
     - Validate that paths are not empty
     - Raise ValueError with descriptive message if configuration is missing
