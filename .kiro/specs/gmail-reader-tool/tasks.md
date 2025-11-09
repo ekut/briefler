@@ -20,27 +20,27 @@
     - _Requirements: 1.1, 1.2, 1.3_
 
 - [ ] 3. Implement Gmail API authentication
-  - [ ] 3.1 Create _initialize_gmail_service method
+  - [x] 3.1 Create _initialize_gmail_service method
     - Define Gmail API scopes (gmail.readonly)
     - Check if token.json exists at configured path
     - Load credentials from token file if it exists
     - _Requirements: 1.4, 1.5_
   
-  - [ ] 3.2 Implement OAuth flow for new authentication
+  - [x] 3.2 Implement OAuth flow for new authentication
     - Load credentials.json file
     - Create InstalledAppFlow with credentials and scopes
     - Run local server flow for user authorization
     - Save generated token to token.json file
     - _Requirements: 1.5_
   
-  - [ ] 3.3 Implement token refresh logic
+  - [x] 3.3 Implement token refresh logic
     - Check if credentials are expired
     - Refresh credentials if expired and refresh token is available
     - Save refreshed token to file
     - Build and return Gmail API service using credentials
     - _Requirements: 1.4, 1.5_
   
-  - [ ] 3.4 Add authentication error handling
+  - [x] 3.4 Add authentication error handling
     - Catch file not found errors for credentials
     - Catch OAuth flow errors
     - Raise descriptive exceptions for authentication failures
