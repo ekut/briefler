@@ -185,7 +185,7 @@
     - _Requirements: 3.1_
 
 - [ ] 10. Create example usage and documentation
-  - [ ] 10.1 Create example script
+  - [x] 10.1 Create example script
     - Write example showing how to instantiate the tool
     - Show how to register with CrewAI agent
     - Demonstrate agent task using the tool

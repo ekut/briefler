@@ -80,8 +80,12 @@ class GmailReaderTool(BaseTool):
         super().__init__(**kwargs)
         
         # Load configuration from environment variables
-        self.credentials_path = os.getenv('GMAIL_CREDENTIALS_PATH')
-        self.token_path = os.getenv('GMAIL_TOKEN_PATH')
+        # Expand ~ to full home directory path
+        credentials_path_raw = os.getenv('GMAIL_CREDENTIALS_PATH')
+        token_path_raw = os.getenv('GMAIL_TOKEN_PATH')
+        
+        self.credentials_path = os.path.expanduser(credentials_path_raw) if credentials_path_raw else None
+        self.token_path = os.path.expanduser(token_path_raw) if token_path_raw else None
         
         # Validate configuration
         if not self.credentials_path:
