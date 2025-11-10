@@ -48,7 +48,7 @@
     - Set verbose to True
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 4. Create example script
+- [x] 4. Create example script
   - Create examples/gmail_crew_example.py
   - Import GmailReaderCrew and load_dotenv
   - Implement main() function with user input for sender_email
