@@ -1,56 +1,68 @@
-# {{crew_name}} Crew
+# Briefler
 
-Welcome to the {{crew_name}} Crew project, powered by [crewAI](https://crewai.com). This template is designed to help you set up a multi-agent AI system with ease, leveraging the powerful and flexible framework provided by crewAI. Our goal is to enable your agents to collaborate effectively on complex tasks, maximizing their collective intelligence and capabilities.
+A research project exploring the capabilities of building agentic applications using the [CrewAI](https://crewai.com) framework. This project demonstrates multi-agent system creation, external API integration, and code organization following CrewAI best practices.
 
-## Installation
+## Documentation
 
-Ensure you have Python >=3.10 <3.14 installed on your system. This project uses [UV](https://docs.astral.sh/uv/) for dependency management and package handling, offering a seamless setup and execution experience.
+### Architecture and Project Structure
 
-First, if you haven't already, install uv:
+- [Product Overview](.kiro/steering/product.md) - product description and core functionality
+- [Project Structure](.kiro/steering/structure.md) - code organization, patterns, and conventions
+- [Technology Stack](.kiro/steering/tech.md) - technologies used and common commands
+
+### Component Specifications
+
+#### Gmail Reader Tool
+- [Requirements](.kiro/specs/gmail-reader-tool/requirements.md) - Gmail reader tool requirements
+- [Design](.kiro/specs/gmail-reader-tool/design.md) - architectural design
+- [Tasks](.kiro/specs/gmail-reader-tool/tasks.md) - implementation tasks
+
+#### CrewAI Structure Conversion
+- [Requirements](.kiro/specs/crewai-structure-conversion/requirements.md) - crew structure conversion requirements
+- [Design](.kiro/specs/crewai-structure-conversion/design.md) - crew architecture design
+- [Tasks](.kiro/specs/crewai-structure-conversion/tasks.md) - conversion tasks
+
+### Usage Examples
+
+- [Examples README](examples/README.md) - Gmail Reader Tool usage examples
+
+## Quick Start
+
+### Installation
 
 ```bash
+# Install UV package manager
 pip install uv
-```
 
-Next, navigate to your project directory and install the dependencies:
-
-(Optional) Lock the dependencies and install them by using the CLI command:
-```bash
+# Install project dependencies
 crewai install
 ```
 
-### Customizing
+### Configuration
 
-**Add your `OPENAI_API_KEY` into the `.env` file**
-
-- Modify `src/briefler/config/agents.yaml` to define your agents
-- Modify `src/briefler/config/tasks.yaml` to define your tasks
-- Modify `src/briefler/crew.py` to add your own logic, tools and specific args
-- Modify `src/briefler/main.py` to add custom inputs for your agents and tasks
-
-## Running the Project
-
-To kickstart your flow and begin execution, run this from the root folder of your project:
+Create a `.env` file based on `.env.example` and add required keys:
 
 ```bash
-crewai run
+OPENAI_API_KEY=your_openai_api_key
+GMAIL_CREDENTIALS_PATH=path/to/credentials.json
+GMAIL_TOKEN_PATH=path/to/token.json
 ```
 
-This command initializes the briefler Flow as defined in your configuration.
+### Running
 
-This example, unmodified, will run the create a `report.md` file with the output of a research on LLMs in the root folder.
+```bash
+# Run the main flow
+crewai run
 
-## Understanding Your Crew
+# Visualize flow structure
+crewai plot
 
-The briefler Crew is composed of multiple AI agents, each with unique roles, goals, and tools. These agents collaborate on a series of tasks, defined in `config/tasks.yaml`, leveraging their collective skills to achieve complex objectives. The `config/agents.yaml` file outlines the capabilities and configurations of each agent in your crew.
+# Run examples
+python examples/gmail_crew_example.py
+```
 
-## Support
+## CrewAI Resources
 
-For support, questions, or feedback regarding the {{crew_name}} Crew or crewAI.
-
-- Visit our [documentation](https://docs.crewai.com)
-- Reach out to us through our [GitHub repository](https://github.com/joaomdmoura/crewai)
-- [Join our Discord](https://discord.com/invite/X4JWnZnxPb)
-- [Chat with our docs](https://chatg.pt/DWjSBZn)
-
-Let's create wonders together with the power and simplicity of crewAI.
+- [CrewAI Documentation](https://docs.crewai.com)
+- [GitHub Repository](https://github.com/joaomdmoura/crewai)
+- [Discord Community](https://discord.com/invite/X4JWnZnxPb)

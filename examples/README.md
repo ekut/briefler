@@ -1,6 +1,9 @@
 # Gmail Reader Tool Examples
 
-This directory contains example scripts demonstrating how to use the GmailReaderTool with CrewAI.
+This directory contains example scripts demonstrating two approaches for working with Gmail in CrewAI:
+
+1. **Direct Tool Usage** (`gmail_reader_example.py`) - Using GmailReaderTool directly with agents
+2. **Crew Structure** (`gmail_crew_example.py`) - Using the structured GmailReaderCrew with YAML configs
 
 ## Prerequisites
 
@@ -18,74 +21,73 @@ Before running the examples, ensure you have:
      ```
      GMAIL_CREDENTIALS_PATH=path/to/credentials.json
      GMAIL_TOKEN_PATH=path/to/token.json
+     OPENAI_API_KEY=your_openai_api_key
      ```
 
 3. **Dependencies**
    - Install the project dependencies:
      ```bash
-     uv sync
+     crewai install
      ```
 
 ## Running the Examples
 
-### Basic Example
+### Crew Structure Example (Recommended)
 
-The main example demonstrates the complete workflow:
+The crew-based approach uses YAML configuration files for better maintainability:
+
+```bash
+python examples/gmail_crew_example.py
+```
+
+This demonstrates:
+- Using `@CrewBase` decorator pattern
+- YAML-based agent and task configuration
+- Structured crew organization following project conventions
+
+### Direct Tool Usage Example
+
+For simpler use cases or learning purposes, use the direct tool approach:
 
 ```bash
 python examples/gmail_reader_example.py
 ```
 
-This will:
-1. Instantiate the GmailReaderTool
-2. Create a CrewAI agent with the tool
-3. Create a task to read unread emails from a sender
-4. Execute the crew and display results
+This demonstrates:
+- Direct instantiation of GmailReaderTool
+- Manual agent and task creation
+- Inline configuration
 
-**First Run**: The first time you run the example, it will open your browser for Gmail authentication. After authorizing, a `token.json` file will be created for future use.
+**First Run**: The first time you run either example, it will open your browser for Gmail authentication. After authorizing, a `token.json` file will be created for future use.
 
-### Direct Tool Usage
+### Additional Examples in gmail_reader_example.py
 
-To use the tool directly without a CrewAI agent, uncomment the following line in `gmail_reader_example.py`:
+The direct tool usage script includes additional examples you can uncomment:
 
+**Direct Tool Call** - Call the tool's `_run()` method without an agent:
 ```python
 # direct_tool_usage_example()
 ```
 
-This demonstrates how to call the tool's `_run()` method directly.
-
-### Multi-Sender Example
-
-To check emails from multiple senders in a single crew execution, uncomment:
-
+**Multi-Sender** - Check emails from multiple senders in one execution:
 ```python
 # multi_sender_example()
 ```
 
-This creates multiple tasks, each checking a different sender.
-
 ## Example Output
 
-When you run the basic example, you'll see output similar to:
+When you run the crew example, you'll see output similar to:
 
 ```
-=== Gmail Reader Tool Example ===
+=== Gmail Reader Crew Example ===
 
-Step 1: Instantiating GmailReaderTool...
-✓ Tool instantiated successfully
-
-Step 2: Creating CrewAI agent with GmailReaderTool...
-✓ Agent created successfully
-
-Step 3: Creating task for the agent...
-Enter sender email address to check (or press Enter for default): 
+Enter sender email address (or press Enter for default): 
 Using default sender: notifications@github.com
-✓ Task created successfully
 
-Step 4: Creating and running the crew...
+Instantiating GmailReaderCrew...
+Analyzing unread emails from notifications@github.com...
+
 Note: First run may open browser for Gmail authentication
-
-Executing crew...
 
 [Agent execution logs...]
 
@@ -94,29 +96,37 @@ RESULTS
 ============================================================
 Found 3 unread messages from notifications@github.com:
 
----
-Message 1:
-Subject: [username/repo] New issue opened
-From: notifications@github.com
-Date: Mon, 8 Nov 2025 10:30:00 -0800
+Summary:
+- Total messages: 3
+- Subjects:
+  1. [username/repo] New issue opened (Nov 8, 10:30 AM)
+  2. [username/repo] Pull request merged (Nov 8, 2:15 PM)
+  3. [username/repo] New comment on issue #123 (Nov 8, 4:45 PM)
 
-[Message body content...]
+Key insights:
+- Active development on repository
+- One PR successfully merged
+- Ongoing discussion on issue #123
 
-Attachments: 0 files
-
----
-[Additional messages...]
+Priority: Medium - Review merged PR and respond to issue comment
 ============================================================
 ```
 
 ## Customization
 
-You can customize the examples by:
+### For Crew Structure (gmail_crew_example.py)
 
-1. **Changing the sender email**: Modify the `sender_email` variable
-2. **Adjusting agent behavior**: Update the agent's `role`, `goal`, or `backstory`
-3. **Modifying task descriptions**: Change what the agent should do with the emails
-4. **Adding more tools**: Include additional tools in the agent's toolkit
+Edit the YAML configuration files:
+- `src/briefler/crews/gmail_reader_crew/config/agents.yaml` - Modify agent role, goal, backstory
+- `src/briefler/crews/gmail_reader_crew/config/tasks.yaml` - Change task descriptions and expected output
+
+### For Direct Tool Usage (gmail_reader_example.py)
+
+Modify the script directly:
+1. **Sender email**: Change the `sender_email` variable
+2. **Agent behavior**: Update `role`, `goal`, or `backstory` in Agent constructor
+3. **Task descriptions**: Modify the Task `description` and `expected_output`
+4. **Additional tools**: Add more tools to the agent's `tools` list
 
 ## Troubleshooting
 

@@ -1,64 +1,97 @@
 #!/usr/bin/env python
-from random import randint
+"""
+Flow Template for Briefler Project
+
+This is a skeleton template for creating new CrewAI flows.
+Copy and modify this template when creating new flows.
+
+Example usage:
+    1. Define your state model (FlowState)
+    2. Create flow steps using @start() and @listen() decorators
+    3. Integrate your crews and tools
+    4. Implement kickoff(), plot(), and run_with_trigger() functions
+"""
 
 from pydantic import BaseModel
-
 from crewai.flow import Flow, listen, start
 
-from briefler.crews.poem_crew.poem_crew import PoemCrew
+
+class FlowState(BaseModel):
+    """
+    Define the state model for your flow.
+    Add fields that will be passed between flow steps.
+    """
+    # Example fields:
+    # input_data: str = ""
+    # result: str = ""
+    pass
 
 
-class PoemState(BaseModel):
-    sentence_count: int = 1
-    poem: str = ""
-
-
-class PoemFlow(Flow[PoemState]):
+class BrieflerFlow(Flow[FlowState]):
+    """
+    Main flow class for orchestrating crew execution.
+    
+    Flow steps are defined using decorators:
+    - @start(): Entry point of the flow
+    - @listen(method_name): Triggered after specified method completes
+    """
 
     @start()
-    def generate_sentence_count(self, crewai_trigger_payload: dict = None):
-        print("Generating sentence count")
-
+    def initialize(self, crewai_trigger_payload: dict = None):
+        """
+        Entry point of the flow.
+        
+        Args:
+            crewai_trigger_payload: Optional trigger data from external sources
+        """
+        print("Initializing flow...")
+        
         # Use trigger payload if available
         if crewai_trigger_payload:
-            # Example: use trigger data to influence sentence count
-            self.state.sentence_count = crewai_trigger_payload.get('sentence_count', randint(1, 5))
             print(f"Using trigger payload: {crewai_trigger_payload}")
-        else:
-            self.state.sentence_count = randint(1, 5)
+            # Process trigger payload and update state
+            # self.state.input_data = crewai_trigger_payload.get('key', 'default')
+        
+        # Initialize your flow state here
+        pass
 
-    @listen(generate_sentence_count)
-    def generate_poem(self):
-        print("Generating poem")
-        result = (
-            PoemCrew()
-            .crew()
-            .kickoff(inputs={"sentence_count": self.state.sentence_count})
-        )
-
-        print("Poem generated", result.raw)
-        self.state.poem = result.raw
-
-    @listen(generate_poem)
-    def save_poem(self):
-        print("Saving poem")
-        with open("poem.txt", "w") as f:
-            f.write(self.state.poem)
+    # Add more flow steps using @listen() decorator
+    # Example:
+    # @listen(initialize)
+    # def process_data(self):
+    #     """Process data using a crew."""
+    #     print("Processing data...")
+    #     
+    #     # Instantiate and run your crew
+    #     # result = YourCrew().crew().kickoff(inputs={...})
+    #     # self.state.result = result.raw
+    #     pass
 
 
 def kickoff():
-    poem_flow = PoemFlow()
-    poem_flow.kickoff()
+    """
+    Standard entry point for running the flow.
+    Usage: crewai run
+    """
+    flow = BrieflerFlow()
+    flow.kickoff()
 
 
 def plot():
-    poem_flow = PoemFlow()
-    poem_flow.plot()
+    """
+    Generate a visual plot of the flow structure.
+    Usage: crewai plot
+    """
+    flow = BrieflerFlow()
+    flow.plot()
 
 
 def run_with_trigger():
     """
-    Run the flow with trigger payload.
+    Run the flow with external trigger payload.
+    
+    Usage:
+        python src/briefler/main.py '{"key": "value"}'
     """
     import json
     import sys
@@ -73,11 +106,10 @@ def run_with_trigger():
         raise Exception("Invalid JSON payload provided as argument")
 
     # Create flow and kickoff with trigger payload
-    # The @start() methods will automatically receive crewai_trigger_payload parameter
-    poem_flow = PoemFlow()
+    flow = BrieflerFlow()
 
     try:
-        result = poem_flow.kickoff({"crewai_trigger_payload": trigger_payload})
+        result = flow.kickoff({"crewai_trigger_payload": trigger_payload})
         return result
     except Exception as e:
         raise Exception(f"An error occurred while running the flow with trigger: {e}")

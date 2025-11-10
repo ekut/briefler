@@ -2,7 +2,7 @@
 
 ## Overview
 
-This design document outlines the conversion of the gmail_reader_example.py script into a standard CrewAI crew structure following the project's established patterns. The new structure will use the @CrewBase decorator pattern with YAML configuration files, making the Gmail reader functionality consistent with other crews in the project (e.g., poem_crew).
+This design document outlines the conversion of the gmail_reader_example.py script into a standard CrewAI crew structure following the project's established patterns. The new structure will use the @CrewBase decorator pattern with YAML configuration files, making the Gmail reader functionality consistent with the standard CrewAI crew pattern.
 
 The conversion will create a modular, configuration-driven crew that separates concerns between code (crew logic) and configuration (agent/task definitions), improving maintainability and reusability.
 
@@ -76,7 +76,7 @@ class GmailReaderCrew:
 
 **Key Design Decisions:**
 - Uses @CrewBase decorator to enable CrewAI's automatic agent/task discovery
-- Follows the same pattern as poem_crew for consistency
+- Follows the standard CrewAI crew pattern for consistency
 - Separates configuration from implementation
 
 ### 2. Agent Configuration (agents.yaml)
@@ -106,7 +106,7 @@ email_analyst:
 **Design Rationale:**
 - Externalizing configuration allows non-developers to modify agent behavior
 - Template parameters enable runtime customization
-- Follows YAML structure established by poem_crew
+- Follows standard CrewAI YAML structure
 
 ### 3. Task Configuration (tasks.yaml)
 
