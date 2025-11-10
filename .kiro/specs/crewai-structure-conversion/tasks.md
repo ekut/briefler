@@ -1,19 +1,19 @@
 # Implementation Plan
 
-- [ ] 1. Create directory structure and module initialization
+- [x] 1. Create directory structure and module initialization
   - Create src/briefler/crews/gmail_reader_crew/ directory
   - Create src/briefler/crews/gmail_reader_crew/config/ directory
   - Create __init__.py in gmail_reader_crew directory that exports GmailReaderCrew
   - _Requirements: 7.1, 7.2, 7.3_
 
-- [ ] 2. Create YAML configuration files
-  - [ ] 2.1 Create agents.yaml configuration file
+- [x] 2. Create YAML configuration files
+  - [x] 2.1 Create agents.yaml configuration file
     - Write config/agents.yaml with email_analyst agent definition
     - Include role, goal, and backstory fields
     - Add {sender_email} parameter placeholder in goal and backstory
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
   
-  - [ ] 2.2 Create tasks.yaml configuration file
+  - [x] 2.2 Create tasks.yaml configuration file
     - Write config/tasks.yaml with analyze_emails task definition
     - Include description and expected_output fields
     - Add {sender_email} parameter placeholder in description

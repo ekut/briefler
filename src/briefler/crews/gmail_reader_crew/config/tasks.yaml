@@ -1,0 +1,12 @@
+analyze_emails:
+  description: >
+    Read all unread emails from {sender_email} and provide a comprehensive summary.
+    Include the number of messages, their subjects, timestamps, and key points 
+    from the content. Organize the information in a clear and readable format.
+  expected_output: >
+    A structured summary of unread emails including:
+    - Total message count
+    - List of subjects with timestamps
+    - Key information and action items from each message
+    - Overall priority assessment
+  agent: email_analyst
