@@ -1,14 +1,78 @@
-analyze_emails:
+cleanup_email_content:
   description: >
     Read all unread emails from these senders: {sender_emails} received in the last 
-    {days} days and provide a comprehensive summary in {language} language.
-    Include the number of messages, their subjects, timestamps, and key points 
-    from the content. Organize the information in a clear and readable format.
+    {days} days and clean the content by removing template boilerplate from email 
+    HEADERS and FOOTERS only. The message body must be preserved completely.
+    
+    For each email, identify and remove:
+    
+    HEADER BOILERPLATE (remove these):
+    - Automated message notices ("This is an automated message, please do not reply")
+    - Browser viewing suggestions ("For best viewing, open this email in your browser")
+    - Do-not-reply warnings ("Do not reply to this email address")
+    - Standard header banners with generic messaging
+    
+    FOOTER BOILERPLATE (remove these):
+    - Email footers (typically after horizontal lines, multiple blank lines, or footer markers)
+    - Repetitive contact information (phone numbers, email addresses, physical addresses, social media links)
+    - Legal text (copyright notices, confidentiality statements, regulatory disclosures, 
+      terms of service links, privacy policy links)
+    - Unsubscribe mechanisms (unsubscribe links, preference center links, opt-out instructions)
+    - Company information that appears in every email (company name, address, registration details)
+    - "Follow us on social media" blocks in footers
+    
+    CRITICAL PRESERVATION RULES:
+    - **PRESERVE THE COMPLETE MESSAGE BODY** - do not remove any content from the main message
+    - Preserve ALL promotional content, offers, and announcements from the message body
+    - Preserve ALL action items, deadlines, and important details from the message body
+    - Only remove template elements from headers (before message body) and footers (after message body)
+    - If uncertain whether content is header/footer or message body, preserve it
+    - The message body is the primary content between any header boilerplate and footer boilerplate
+    
+    EXAMPLES OF BOILERPLATE TO REMOVE (from headers/footers only):
+    - "This is an automated message. Please do not reply to this email."
+    - "View this email in your browser | Forward to a friend"
+    - "PT Bank OCBC NISP Tbk, OCBC Tower, Jl. Prof. Dr. Satrio Kav 25, Jakarta..."
+    - "You are receiving this email because you registered your email with our service..."
+    - "Unsubscribe | Privacy Policy | Terms & Conditions"
+    - "© 2024 Company Name. All rights reserved."
+    - "This email and any attachments are confidential..."
+    - "Follow us: [Facebook] [Twitter] [Instagram]" (only in footers)
+    
+    Output the cleaned content for each email with:
+    - Email subject
+    - Sender
+    - Timestamp
+    - Cleaned message body (boilerplate removed)
+  expected_output: >
+    A structured list of emails with cleaned content:
+    - Subject line
+    - Sender email address
+    - Timestamp
+    - Message body with boilerplate content removed
+    
+    The output should contain only message-specific information without 
+    footers, legal disclaimers, or repetitive organizational metadata.
+  agent: email_analyst
+
+analyze_emails:
+  description: >
+    Based on the cleaned email content provided, create a comprehensive summary 
+    in {language} language.
+    
+    The content has already been cleaned to remove headers, footers, and boilerplate.
+    Focus on extracting and organizing:
+    - Key information and main points from each message
+    - Action items and requests
+    - Deadlines and time-sensitive information
+    - Overall priority assessment
+    
+    Organize the information in a clear and readable format.
     
     IMPORTANT: You MUST write your entire summary in {language} language. 
     All text, headings, and descriptions must be in {language}.
   expected_output: >
-    A structured summary of unread emails in {language} language including:
+    A structured summary of emails in {language} language including:
     - Total message count
     - List of subjects with timestamps
     - Key information and action items from each message
@@ -16,3 +80,4 @@ analyze_emails:
     
     The entire output must be written in {language} language.
   agent: email_analyst
+  context: [cleanup_email_content]

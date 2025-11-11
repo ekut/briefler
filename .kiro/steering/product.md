@@ -4,25 +4,25 @@ inclusion: always
 
 # Product: Briefler
 
-AI-powered email analysis using CrewAI multi-agent framework. Fetches unread Gmail messages, analyzes content from specified senders, generates structured summaries with insights and action items.
+AI-powered email analysis tool using CrewAI multi-agent framework. Fetches unread Gmail messages from specified senders and generates structured summaries with insights and action items.
 
-## Core Capabilities
+## Core Functionality
 
-- Filter unread emails by sender within configurable time window (default 7 days)
-- Process all email formats: plain text, HTML, multipart/nested MIME
-- Generate multilingual summaries using ISO 639-1 language codes
-- Extract attachment metadata without downloading content
-- OAuth 2.0 authentication with automatic token refresh
+- Filters unread emails by sender within configurable time window (default: 7 days)
+- Processes all email formats: plain text, HTML, multipart/nested MIME
+- Generates multilingual summaries using ISO 639-1 language codes
+- Extracts attachment metadata (filename, size, type) without downloading content
+- Uses OAuth 2.0 with automatic token refresh
 
 ## Input Parameters
 
-- `sender_emails`: List[str] - Required. Email addresses to filter
-- `language`: str - Optional. ISO 639-1 code for summary output (default: "en")
-- `days`: int - Optional. Lookback period in days (default: 7)
+- `sender_emails`: List[str] - Required email addresses to filter
+- `language`: str - ISO 639-1 code for summary output (default: "en")
+- `days`: int - Lookback period in days (default: 7)
 
-## Design Principles
+## Critical Constraints
 
-- **Read-Only**: Uses `gmail.readonly` scope, never modifies emails
-- **Privacy-First**: Credentials stored locally, never committed to version control
-- **Resilient**: Gracefully handles malformed emails, API errors with exponential backoff retry
-- **Extensible**: Tool-based architecture enables adding new data sources and capabilities
+- Read-only access: Uses `gmail.readonly` scope, never modifies emails
+- Privacy: Credentials stored locally, never committed to version control
+- Error handling: Implement exponential backoff retry for API calls
+- Email processing: Handle malformed emails gracefully with UTF-8 fallback

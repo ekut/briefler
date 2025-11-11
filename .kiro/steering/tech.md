@@ -6,13 +6,13 @@ inclusion: always
 
 ## Core Dependencies
 
-- **Python**: >=3.10, <3.14
-- **Package Manager**: UV
-- **Build System**: Hatchling
-- **Framework**: CrewAI v1.2.0 (multi-agent orchestration)
-- **APIs**: Google API Client (Gmail integration)
-- **Validation**: Pydantic
-- **Config**: Python-dotenv
+- Python: >=3.10, <3.14
+- Package Manager: UV
+- Build System: Hatchling
+- Framework: CrewAI v1.2.0
+- APIs: Google API Client (Gmail)
+- Validation: Pydantic
+- Config: Python-dotenv
 
 ## Common Commands
 
@@ -22,13 +22,12 @@ crewai install
 
 # Run the flow
 crewai run
-# OR
 python src/briefler/main.py
 
 # Run with JSON payload
 python src/briefler/main.py '{"sender_emails": ["user@example.com"], "days": 7, "language": "en"}'
 
-# Visualize flow structure
+# Visualize flow
 crewai plot
 
 # Run examples
@@ -38,18 +37,18 @@ python examples/gmail_reader_example.py
 
 ## Environment Configuration
 
-Create `.env` file with required variables:
+Required `.env` variables:
 
 ```bash
-OPENAI_API_KEY=sk-...                           # Required: OpenAI API key
-GMAIL_CREDENTIALS_PATH=~/path/to/credentials.json  # Required: OAuth credentials (supports ~ expansion)
-GMAIL_TOKEN_PATH=~/path/to/token.json          # Required: Token storage location
+OPENAI_API_KEY=sk-...                              # OpenAI API key
+GMAIL_CREDENTIALS_PATH=~/path/to/credentials.json  # OAuth credentials (~ expansion supported)
+GMAIL_TOKEN_PATH=~/path/to/token.json              # Token storage location
 ```
 
-**Important**: Never commit `.env`, `credentials.json`, or `token.json` to version control.
+Never commit `.env`, `credentials.json`, or `token.json` to version control.
 
-## Gmail OAuth Setup
+## Gmail OAuth Flow
 
-1. First run opens browser for Google account authorization
-2. Token is saved to `GMAIL_TOKEN_PATH` and auto-refreshes
-3. Subsequent runs use stored token without browser interaction
+1. First run opens browser for authorization
+2. Token saved to `GMAIL_TOKEN_PATH` and auto-refreshes
+3. Subsequent runs use stored token

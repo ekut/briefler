@@ -26,7 +26,15 @@ class GmailReaderCrew:
         )
 
     @task
+    def cleanup_email_content(self) -> Task:
+        """Task to clean email content by removing boilerplate"""
+        return Task(
+            config=self.tasks_config["cleanup_email_content"],  # type: ignore[index]
+        )
+
+    @task
     def analyze_emails(self) -> Task:
+        """Task to analyze cleaned email content and generate summary"""
         return Task(
             config=self.tasks_config["analyze_emails"],  # type: ignore[index]
         )
