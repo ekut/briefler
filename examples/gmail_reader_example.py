@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 from crewai import Agent, Task, Crew, Process
 
 # Import the GmailReaderTool
-from mailbox_briefler.tools.gmail_reader_tool import GmailReaderTool
+from briefler.tools.gmail_reader_tool import GmailReaderTool
 
 
 def main():

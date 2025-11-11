@@ -2,36 +2,54 @@
 inclusion: always
 ---
 
-# Technology Stack
+# Technology Stack & Commands
 
-## Stack
-- Python >=3.10, <3.14
-- Package Manager: UV
-- Build: Hatchling
-- CrewAI v1.2.0 (multi-agent framework)
-- Google API Client (Gmail integration)
-- Pydantic (validation)
-- Python-dotenv (env management)
+## Core Dependencies
 
-## Commands
+- **Python**: >=3.10, <3.14
+- **Package Manager**: UV
+- **Build System**: Hatchling
+- **Framework**: CrewAI v1.2.0 (multi-agent orchestration)
+- **APIs**: Google API Client (Gmail integration)
+- **Validation**: Pydantic
+- **Config**: Python-dotenv
 
-Install dependencies: `crewai install`
+## Common Commands
 
-Run flow: `crewai run` or `python src/briefler/main.py`
+```bash
+# Install dependencies
+crewai install
 
-Run with payload: `python src/briefler/main.py '{"sender_emails": ["user@example.com"], "days": 7, "language": "en"}'`
+# Run the flow
+crewai run
+# OR
+python src/briefler/main.py
 
-Visualize: `crewai plot`
+# Run with JSON payload
+python src/briefler/main.py '{"sender_emails": ["user@example.com"], "days": 7, "language": "en"}'
 
-Run examples: `python examples/gmail_crew_example.py` or `python examples/gmail_reader_example.py`
+# Visualize flow structure
+crewai plot
 
-## Environment Variables
+# Run examples
+python examples/gmail_crew_example.py
+python examples/gmail_reader_example.py
+```
 
-Required in `.env`:
-- `OPENAI_API_KEY`: OpenAI API key
-- `GMAIL_CREDENTIALS_PATH`: Path to credentials.json (supports `~` expansion)
-- `GMAIL_TOKEN_PATH`: Path for token.json storage
+## Environment Configuration
 
-## Gmail OAuth Flow
+Create `.env` file with required variables:
 
-First run opens browser for authorization. Token auto-refreshes and persists to configured path.
+```bash
+OPENAI_API_KEY=sk-...                           # Required: OpenAI API key
+GMAIL_CREDENTIALS_PATH=~/path/to/credentials.json  # Required: OAuth credentials (supports ~ expansion)
+GMAIL_TOKEN_PATH=~/path/to/token.json          # Required: Token storage location
+```
+
+**Important**: Never commit `.env`, `credentials.json`, or `token.json` to version control.
+
+## Gmail OAuth Setup
+
+1. First run opens browser for Google account authorization
+2. Token is saved to `GMAIL_TOKEN_PATH` and auto-refreshes
+3. Subsequent runs use stored token without browser interaction

@@ -4,40 +4,83 @@ inclusion: always
 
 # Architecture & Code Conventions
 
-## Structure
+## Project Structure
 
-`src/briefler/` - Main package
-- `main.py` - Entry point, delegates to GmailReadFlow
-- `flows/gmail_read_flow/` - Flow orchestration with state
-- `crews/gmail_reader_crew/` - Crew with config/ (agents.yaml, tasks.yaml)
-- `tools/` - Legacy/template tools
+```
+src/briefler/
+├── main.py                          # Entry point with kickoff(), plot(), run_with_trigger()
+├── flows/gmail_read_flow/           # Flow orchestration with FlowState
+├── crews/gmail_reader_crew/         # Crew implementation
+│   └── config/                      # agents.yaml, tasks.yaml
+└── tools/                           # GmailReaderTool implementation
+```
 
-`src/mailbox_briefler/tools/` - Gmail API tool implementation
+## CrewAI Framework Patterns
 
-## CrewAI Patterns
+### Flow Pattern
+- Use `@start()` and `@listen()` decorators for flow methods
+- Define FlowState as Pydantic model with fields:
+  - `sender_emails: List[str]` (required)
+  - `language: str = "en"`
+  - `days: int = 7`
+  - `result: Optional[str] = None`
 
-**Flow Pattern**: Use `@start()` and `@listen()` decorators. FlowState (Pydantic) contains `sender_emails` (List[str], required), `language` (str, default "en"), `days` (int, default 7), `result` (Optional).
+### Crew Pattern
+- Decorate class with `@CrewBase`
+- Store configuration in YAML files (agents.yaml, tasks.yaml)
+- Use decorators: `@agent`, `@task`, `@crew`
+- Default to sequential process execution
 
-**Crew Pattern**: Use `@CrewBase` decorator. Config in YAML files. Methods decorated with `@agent`, `@task`, `@crew`. Sequential process by default.
+### Tool Pattern
+- Extend `crewai.tools.BaseTool`
+- Define Pydantic `args_schema` with Field descriptions for all parameters
+- Implement `_run()` method with business logic
+- Include exponential backoff retry logic for API calls
 
-**Tool Pattern**: Extend `crewai.tools.BaseTool`. Define Pydantic `args_schema` with Field descriptions. Implement `_run()`. Add retry logic with exponential backoff.
-
-**Entry Points** (`main.py`): `kickoff()` for `crewai run`, `plot()` for visualization, `run_with_trigger()` for JSON payload. Supports legacy `sender_email` (singular).
+### Entry Points (main.py)
+- `kickoff()`: Used by `crewai run` command
+- `plot()`: Used by `crewai plot` for visualization
+- `run_with_trigger()`: Accepts JSON payload, supports legacy `sender_email` (singular)
 
 ## Code Style
 
-**Naming**: packages `snake_case`, classes `PascalCase`, methods `snake_case`, private `_prefix`, constants `UPPERCASE`
+### Naming Conventions
+- Packages/modules: `snake_case`
+- Classes: `PascalCase`
+- Functions/methods: `snake_case`
+- Private members: `_prefix`
+- Constants: `UPPERCASE_WITH_UNDERSCORES`
 
-**Docs**: Google-style docstrings with type hints throughout. All documentation (README, docstrings, comments) and code comments MUST be written in English only.
+### Documentation
+- Use Google-style docstrings with complete type hints
+- All documentation (README, docstrings, comments) MUST be in English only
+- Include parameter descriptions, return types, and raised exceptions
 
-**Errors**: Retry API calls with backoff. Raise `ValueError`/`FileNotFoundError` with context. Log with `exc_info=True`. Detailed auth error messages.
+### Error Handling
+- Retry API calls with exponential backoff
+- Raise specific exceptions (`ValueError`, `FileNotFoundError`) with descriptive messages
+- Log errors with `exc_info=True` for stack traces
+- Provide detailed authentication error messages
 
-**Config**: Validate `os.getenv()`. Use `os.path.expanduser()` for paths. Never commit credentials.
+### Configuration
+- Validate all `os.getenv()` calls for required variables
+- Use `os.path.expanduser()` for file paths supporting `~`
+- Never commit credentials or tokens to version control
 
-## Gmail API
+## Gmail API Integration
 
-**Auth**: OAuth 2.0 local server flow, `gmail.readonly` scope
+### Authentication
+- OAuth 2.0 local server flow
+- Scope: `gmail.readonly` (read-only access)
+- First run opens browser for authorization
+- Token auto-refreshes and persists
 
-**Rate Limiting**: Auto-retry 429 errors with backoff, handle pagination
+### Rate Limiting
+- Auto-retry HTTP 429 errors with exponential backoff
+- Handle pagination for large result sets
 
-**Message Processing**: Base64url decode with UTF-8 fallback. Parse text/plain, text/html, multipart (recursive). Strip HTML, preserve formatting. Extract attachment metadata only (no download).
+### Message Processing
+- Base64url decode message bodies with UTF-8 fallback
+- Parse MIME types: text/plain, text/html, multipart (recursive)
+- Strip HTML tags while preserving text formatting
+- Extract attachment metadata only (filename, size, type) - do not download content

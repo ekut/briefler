@@ -4,24 +4,25 @@ inclusion: always
 
 # Product: Briefler
 
-AI-powered email analysis using CrewAI multi-agent framework. Fetches unread Gmail messages via OAuth 2.0, analyzes content from specified senders, generates structured summaries with insights and action items.
+AI-powered email analysis using CrewAI multi-agent framework. Fetches unread Gmail messages, analyzes content from specified senders, generates structured summaries with insights and action items.
 
-## Capabilities
+## Core Capabilities
 
-Fetch unread emails from specific senders within time window (default 7 days). Process plain text, HTML, multipart/nested formats. Generate multilingual summaries (ISO 639-1 codes). Extract attachment metadata without downloading.
+- Filter unread emails by sender within configurable time window (default 7 days)
+- Process all email formats: plain text, HTML, multipart/nested MIME
+- Generate multilingual summaries using ISO 639-1 language codes
+- Extract attachment metadata without downloading content
+- OAuth 2.0 authentication with automatic token refresh
 
-## Flow Parameters
+## Input Parameters
 
-- `sender_emails`: List[str] - Email addresses to filter (required)
-- `language`: str - ISO 639-1 code for output (default: "en")
-- `days`: int - Lookback period (default: 7)
+- `sender_emails`: List[str] - Required. Email addresses to filter
+- `language`: str - Optional. ISO 639-1 code for summary output (default: "en")
+- `days`: int - Optional. Lookback period in days (default: 7)
 
-## Principles
+## Design Principles
 
-**Read-Only**: Gmail readonly scope, never modifies emails
-
-**Privacy**: Local credential storage, never committed
-
-**Resilience**: Handles malformed emails, API errors with retry logic
-
-**Extensibility**: Tool-based architecture for new sources/capabilities
+- **Read-Only**: Uses `gmail.readonly` scope, never modifies emails
+- **Privacy-First**: Credentials stored locally, never committed to version control
+- **Resilient**: Gracefully handles malformed emails, API errors with exponential backoff retry
+- **Extensible**: Tool-based architecture enables adding new data sources and capabilities

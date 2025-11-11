@@ -60,7 +60,7 @@ This document specifies the requirements for converting the existing gmail_reade
 
 1. THE email_analyst agent method SHALL instantiate the GmailReaderTool
 2. THE email_analyst agent method SHALL pass the GmailReaderTool instance to the Agent constructor via the tools parameter
-3. THE GmailReaderTool SHALL be imported from mailbox_briefler.tools.gmail_reader_tool
+3. THE GmailReaderTool SHALL be imported from briefler.tools.gmail_reader_tool
 4. THE agent configuration SHALL load from the agents.yaml file using config parameter
 5. THE agent method SHALL return an Agent instance with the tool properly registered
 

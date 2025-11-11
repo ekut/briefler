@@ -18,7 +18,7 @@ The Gmail Reader Tool is a custom CrewAI tool that enables AI agents to read unr
 ### Component Structure
 
 ```
-src/mailbox_briefler/tools/
+src/briefler/tools/
 ├── __init__.py
 └── gmail_reader_tool.py
 ```
@@ -395,7 +395,7 @@ This scope provides read-only access to Gmail, sufficient for reading messages w
 ### Tool Registration
 
 ```python
-from src.mailbox_briefler.tools.gmail_reader_tool import GmailReaderTool
+from briefler.tools.gmail_reader_tool import GmailReaderTool
 
 # In agent configuration
 gmail_tool = GmailReaderTool()

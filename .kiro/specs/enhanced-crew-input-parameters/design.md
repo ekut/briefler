@@ -22,7 +22,7 @@ The enhancement touches four main components:
    - Imports and delegates to GmailReadFlow
    - Maintains backward compatibility with existing entry points
 
-3. **GmailReaderTool** (`src/mailbox_briefler/tools/gmail_reader_tool.py`)
+3. **GmailReaderTool** (`src/briefler/tools/gmail_reader_tool.py`)
    - Updated input schema to support multiple senders and date filtering
    - Enhanced query construction for Gmail API
    - Date calculation logic for time-based filtering
@@ -204,7 +204,7 @@ __all__ = ['GmailReadFlow', 'FlowState']
 
 ### 2. GmailReaderTool Updates
 
-**Location:** `src/mailbox_briefler/tools/gmail_reader_tool.py`
+**Location:** `src/briefler/tools/gmail_reader_tool.py`
 
 #### 2.1 Updated Input Schema
 

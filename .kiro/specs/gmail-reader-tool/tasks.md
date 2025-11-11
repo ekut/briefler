@@ -7,7 +7,7 @@
   - _Requirements: 1.1, 1.2, 1.3_
 
 - [x] 2. Create GmailReaderTool base structure
-  - [x] 2.1 Create gmail_reader_tool.py file in src/mailbox_briefler/tools/
+  - [x] 2.1 Create gmail_reader_tool.py file in src/briefler/tools/
     - Define GmailReaderTool class inheriting from BaseTool
     - Set name and description class attributes
     - Define __init__ method to load environment variables
@@ -179,7 +179,7 @@
     - _Requirements: 4.5_
 
 - [x] 9. Update package initialization
-  - [x] 9.1 Update src/mailbox_briefler/tools/__init__.py
+  - [x] 9.1 Update src/briefler/tools/__init__.py
     - Import GmailReaderTool
     - Add to __all__ list for public API
     - _Requirements: 3.1_
