@@ -1,71 +1,11 @@
 #!/usr/bin/env python
 """
-Flow Template for Briefler Project
+Main entry point for Briefler Project.
 
-This is a skeleton template for creating new CrewAI flows.
-Copy and modify this template when creating new flows.
-
-Example usage:
-    1. Define your state model (FlowState)
-    2. Create flow steps using @start() and @listen() decorators
-    3. Integrate your crews and tools
-    4. Implement kickoff(), plot(), and run_with_trigger() functions
+This module provides standard entry points for running the Gmail Read Flow.
 """
 
-from pydantic import BaseModel
-from crewai.flow import Flow, listen, start
-
-
-class FlowState(BaseModel):
-    """
-    Define the state model for your flow.
-    Add fields that will be passed between flow steps.
-    """
-    # Example fields:
-    # input_data: str = ""
-    # result: str = ""
-    pass
-
-
-class BrieflerFlow(Flow[FlowState]):
-    """
-    Main flow class for orchestrating crew execution.
-    
-    Flow steps are defined using decorators:
-    - @start(): Entry point of the flow
-    - @listen(method_name): Triggered after specified method completes
-    """
-
-    @start()
-    def initialize(self, crewai_trigger_payload: dict = None):
-        """
-        Entry point of the flow.
-        
-        Args:
-            crewai_trigger_payload: Optional trigger data from external sources
-        """
-        print("Initializing flow...")
-        
-        # Use trigger payload if available
-        if crewai_trigger_payload:
-            print(f"Using trigger payload: {crewai_trigger_payload}")
-            # Process trigger payload and update state
-            # self.state.input_data = crewai_trigger_payload.get('key', 'default')
-        
-        # Initialize your flow state here
-        pass
-
-    # Add more flow steps using @listen() decorator
-    # Example:
-    # @listen(initialize)
-    # def process_data(self):
-    #     """Process data using a crew."""
-    #     print("Processing data...")
-    #     
-    #     # Instantiate and run your crew
-    #     # result = YourCrew().crew().kickoff(inputs={...})
-    #     # self.state.result = result.raw
-    #     pass
+from briefler.flows.gmail_read_flow import GmailReadFlow
 
 
 def kickoff():
@@ -73,7 +13,7 @@ def kickoff():
     Standard entry point for running the flow.
     Usage: crewai run
     """
-    flow = BrieflerFlow()
+    flow = GmailReadFlow()
     flow.kickoff()
 
 
@@ -82,7 +22,7 @@ def plot():
     Generate a visual plot of the flow structure.
     Usage: crewai plot
     """
-    flow = BrieflerFlow()
+    flow = GmailReadFlow()
     flow.plot()
 
 
@@ -91,7 +31,7 @@ def run_with_trigger():
     Run the flow with external trigger payload.
     
     Usage:
-        python src/briefler/main.py '{"key": "value"}'
+        python src/briefler/main.py '{"sender_emails": ["user@example.com"], "language": "en", "days": 7}'
     """
     import json
     import sys
@@ -106,14 +46,20 @@ def run_with_trigger():
         raise Exception("Invalid JSON payload provided as argument")
 
     # Create flow and kickoff with trigger payload
-    flow = BrieflerFlow()
+    flow = GmailReadFlow()
 
     try:
-        result = flow.kickoff({"crewai_trigger_payload": trigger_payload})
+        result = flow.kickoff(inputs={"crewai_trigger_payload": trigger_payload})
         return result
     except Exception as e:
         raise Exception(f"An error occurred while running the flow with trigger: {e}")
 
 
 if __name__ == "__main__":
-    kickoff()
+    import sys
+    
+    # If command line arguments provided, use run_with_trigger
+    if len(sys.argv) > 1:
+        run_with_trigger()
+    else:
+        kickoff()

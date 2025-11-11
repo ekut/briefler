@@ -1,65 +1,37 @@
+---
+inclusion: always
+---
+
 # Technology Stack
 
-## Build System & Package Management
+## Stack
+- Python >=3.10, <3.14
+- Package Manager: UV
+- Build: Hatchling
+- CrewAI v1.2.0 (multi-agent framework)
+- Google API Client (Gmail integration)
+- Pydantic (validation)
+- Python-dotenv (env management)
 
-- **Package Manager**: UV (modern Python package manager)
-- **Build Backend**: Hatchling
-- **Python Version**: >=3.10, <3.14
+## Commands
 
-## Core Dependencies
+Install dependencies: `crewai install`
 
-- **CrewAI**: v1.2.0 - Multi-agent AI framework with tools extension
-- **Google API Client**: Gmail API integration
-  - `google-api-python-client` >=2.0.0
-  - `google-auth-httplib2` >=0.1.0
-  - `google-auth-oauthlib` >=1.0.0
-- **Pydantic**: Data validation and settings management
-- **Python-dotenv**: Environment variable management
+Run flow: `crewai run` or `python src/briefler/main.py`
 
-## Common Commands
+Run with payload: `python src/briefler/main.py '{"sender_emails": ["user@example.com"], "days": 7, "language": "en"}'`
 
-### Installation & Setup
-```bash
-# Install UV package manager
-pip install uv
+Visualize: `crewai plot`
 
-# Install project dependencies
-crewai install
-```
+Run examples: `python examples/gmail_crew_example.py` or `python examples/gmail_reader_example.py`
 
-### Running the Project
-```bash
-# Run the main flow
-crewai run
+## Environment Variables
 
-# Run with custom entry point
-python src/briefler/main.py
+Required in `.env`:
+- `OPENAI_API_KEY`: OpenAI API key
+- `GMAIL_CREDENTIALS_PATH`: Path to credentials.json (supports `~` expansion)
+- `GMAIL_TOKEN_PATH`: Path for token.json storage
 
-# Run with trigger payload
-python src/briefler/main.py '{"key": "value"}'
+## Gmail OAuth Flow
 
-# Visualize flow structure
-crewai plot
-```
-
-### Development
-```bash
-# Run example scripts
-python examples/gmail_crew_example.py
-python examples/gmail_reader_example.py
-```
-
-## Environment Configuration
-
-Required environment variables (see `.env.example`):
-- `OPENAI_API_KEY`: OpenAI API key for AI agents
-- `GMAIL_CREDENTIALS_PATH`: Path to Gmail API credentials.json
-- `GMAIL_TOKEN_PATH`: Path to store OAuth token.json
-
-## Authentication Flow
-
-Gmail API uses OAuth 2.0:
-1. First run opens browser for user authorization
-2. Token saved to configured path for subsequent runs
-3. Automatic token refresh when expired
-4. Supports credential path expansion with `~` for home directory
+First run opens browser for authorization. Token auto-refreshes and persists to configured path.

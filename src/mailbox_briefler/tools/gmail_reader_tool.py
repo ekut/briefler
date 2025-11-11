@@ -10,7 +10,7 @@ import logging
 import base64
 import re
 import html
-from typing import Type, Optional, Callable, Any, ClassVar
+from typing import Type, Optional, Callable, Any, ClassVar, List
 
 from pydantic import BaseModel, Field
 from crewai.tools import BaseTool
@@ -27,11 +27,15 @@ logger = logging.getLogger(__name__)
 
 
 class GmailReaderToolInput(BaseModel):
-    """Input schema for GmailReaderTool."""
+    """Input schema for GmailReaderTool with enhanced parameters."""
     
-    sender_email: str = Field(
-        ..., 
-        description="The email address of the sender to filter unread messages from."
+    sender_emails: List[str] = Field(
+        ...,
+        description="List of sender email addresses to filter unread messages from"
+    )
+    days: int = Field(
+        default=7,
+        description="Number of days in the past to retrieve unread messages from"
     )
 
 
@@ -196,6 +200,33 @@ class GmailReaderTool(BaseTool):
         if last_exception:
             raise last_exception
     
+    def _calculate_date_threshold(self, days: int) -> str:
+        """Calculate date threshold for Gmail API query.
+        
+        This method calculates a date threshold by subtracting the specified
+        number of days from the current date and formats it for use in Gmail
+        API queries.
+        
+        Args:
+            days: Number of days in the past from current date.
+        
+        Returns:
+            Date string in Gmail API format (YYYY/MM/DD).
+        
+        Example:
+            If today is 2025/11/11 and days=7, returns "2025/11/04"
+        """
+        from datetime import datetime, timedelta
+        
+        # Calculate threshold_date as current date minus days
+        threshold_date = datetime.now() - timedelta(days=days)
+        
+        # Format date as 'YYYY/MM/DD' string for Gmail API
+        formatted_date = threshold_date.strftime('%Y/%m/%d')
+        
+        # Return formatted date string
+        return formatted_date
+    
     def _initialize_gmail_service(self) -> Resource:
         """Initialize and return Gmail API service.
         
@@ -315,19 +346,20 @@ class GmailReaderTool(BaseTool):
                 f"Failed to build Gmail API service. Error: {str(e)}"
             )
     
-    def _get_unread_messages(self, sender_email: str) -> list:
-        """Retrieve unread messages from a specific sender.
+    def _get_unread_messages(self, sender_emails: List[str], days: int = 7) -> list:
+        """Retrieve unread messages from multiple senders within a date range.
         
         This method queries the Gmail API for unread messages from the specified
-        sender email address. It handles pagination to retrieve all matching messages,
-        fetches full message details for each message ID, and returns a list of
-        complete message dictionaries.
+        sender email addresses received within the specified number of days. It handles 
+        pagination to retrieve all matching messages, fetches full message details for 
+        each message ID, and returns a list of complete message dictionaries.
         
         The method includes retry logic with exponential backoff for handling
         transient errors like rate limits and server errors.
         
         Args:
-            sender_email: The email address of the sender to filter messages from.
+            sender_emails: List of sender email addresses to filter messages from.
+            days: Number of days in the past to retrieve unread messages from (default: 7).
         
         Returns:
             List of full message dictionaries with complete message data.
@@ -341,10 +373,18 @@ class GmailReaderTool(BaseTool):
             if not self.service:
                 self.service = self._initialize_gmail_service()
             
-            # Construct Gmail API query: "is:unread from:{sender_email}"
-            query = f"is:unread from:{sender_email}"
+            # Call _calculate_date_threshold(days) to get date string
+            date_threshold = self._calculate_date_threshold(days)
             
-            logger.info(f"Querying Gmail API for unread messages from: {sender_email}")
+            # Construct sender query using OR operator for multiple senders
+            # Format: "(from:email1 OR from:email2)"
+            sender_query = " OR ".join([f"from:{email}" for email in sender_emails])
+            
+            # Combine with date filter: "is:unread (sender_query) after:date"
+            query = f"is:unread ({sender_query}) after:{date_threshold}"
+            
+            # Update logger.info message to include sender count and days
+            logger.info(f"Querying Gmail API for unread messages from {len(sender_emails)} sender(s) in the last {days} days")
             
             message_ids = []
             page_token = None
@@ -363,8 +403,9 @@ class GmailReaderTool(BaseTool):
                     result = self._retry_with_backoff(list_messages)
                 except RuntimeError as e:
                     # Log error with context
+                    senders_str = ", ".join(sender_emails)
                     logger.error(
-                        f"Failed to list messages from {sender_email}: {str(e)}",
+                        f"Failed to list messages from {senders_str}: {str(e)}",
                         exc_info=True
                     )
                     raise
@@ -382,11 +423,12 @@ class GmailReaderTool(BaseTool):
             
             # Check if message list is empty
             if not message_ids:
-                logger.info(f"No unread messages found from {sender_email}")
+                senders_str = ", ".join(sender_emails)
+                logger.info(f"No unread messages found from {senders_str} in the last {days} days")
                 # Return empty list if no messages found
                 return []
             
-            logger.info(f"Found {len(message_ids)} unread message(s) from {sender_email}")
+            logger.info(f"Found {len(message_ids)} unread message(s) from {len(sender_emails)} sender(s)")
             
             # Fetch full message details for each message ID
             full_messages = []
@@ -428,12 +470,13 @@ class GmailReaderTool(BaseTool):
             
         except Exception as e:
             # Catch any unexpected errors and log with context
+            senders_str = ", ".join(sender_emails)
             logger.error(
-                f"Unexpected error in _get_unread_messages for sender {sender_email}: {str(e)}",
+                f"Unexpected error in _get_unread_messages for senders {senders_str}: {str(e)}",
                 exc_info=True
             )
             raise RuntimeError(
-                f"Failed to retrieve messages from {sender_email}: {str(e)}"
+                f"Failed to retrieve messages from {senders_str}: {str(e)}"
             )
     
     def _extract_attachments(self, parts: list) -> list:
@@ -797,35 +840,40 @@ class GmailReaderTool(BaseTool):
             # Return empty string instead of raising to allow processing to continue
             return ''
     
-    def _format_output(self, messages: list, sender_email: str) -> str:
+    def _format_output(self, messages: list, sender_emails: List[str], days: int) -> str:
         """Format message list into readable string output.
         
         This method takes a list of processed message dictionaries and formats them
         into a human-readable string that can be consumed by CrewAI agents. It includes:
-        - A header with message count and sender email
+        - A header with message count and sender emails
         - Individual message sections with headers and body
         - Attachment information if present
         - Appropriate message if no unread messages exist
         
         Args:
             messages: List of message dictionaries with extracted data.
-            sender_email: The email address of the sender (for header).
+            sender_emails: List of sender email addresses (for header).
+            days: Number of days in the past that messages were retrieved from.
         
         Returns:
             Formatted string containing all message information, or a message
             indicating no unread messages were found.
         """
+        # Join sender_emails with ", " for display
+        senders_str = ", ".join(sender_emails)
+        
         # Check if messages list is empty
         if not messages:
-            # Return "No unread messages" message if empty
-            return f"No unread messages found from {sender_email}"
+            # Update "No unread messages" message to include all senders and days
+            return f"No unread messages found from {senders_str} in the last {days} days"
         
         # Count total messages
         message_count = len(messages)
         
-        # Create header with message count and sender
+        # Update header message to show all senders and date range
+        # Format: "Found X messages from sender1, sender2 in the last Y days:"
         output_lines = [
-            f"Found {message_count} unread message{'s' if message_count != 1 else ''} from {sender_email}:",
+            f"Found {message_count} unread message{'s' if message_count != 1 else ''} from {senders_str} in the last {days} days:",
             ""
         ]
         
@@ -874,57 +922,68 @@ class GmailReaderTool(BaseTool):
         
         return "\n".join(output_lines)
     
-    def _run(self, sender_email: str) -> str:
-        """Execute the tool to retrieve unread messages from a sender.
+    def _run(self, sender_emails: List[str], days: int = 7) -> str:
+        """Execute the tool to retrieve unread messages from multiple senders.
         
         This method orchestrates the entire message retrieval process:
-        1. Validates the sender_email input
-        2. Retrieves unread messages from Gmail API
+        1. Validates the sender_emails input
+        2. Retrieves unread messages from Gmail API within specified days
         3. Extracts and decodes message data
         4. Formats the output for agent consumption
         
         Args:
-            sender_email: The email address of the sender to filter messages from.
+            sender_emails: List of sender email addresses to filter messages from.
+            days: Number of days in the past to retrieve unread messages from (default: 7).
         
         Returns:
             Formatted string containing unread messages or error message.
         
         Raises:
-            ValueError: If sender_email is invalid or empty.
+            ValueError: If sender_emails is invalid or empty, or if email formats are invalid.
         """
         try:
-            # Check if sender_email is empty or None
-            if not sender_email or sender_email.strip() == '':
+            # Check if sender_emails list is not empty
+            if not sender_emails or len(sender_emails) == 0:
                 raise ValueError(
-                    "sender_email parameter is required and cannot be empty. "
-                    "Please provide a valid email address."
+                    "sender_emails parameter is required and must contain at least one email address. "
+                    "Please provide a list of valid email addresses."
                 )
             
-            # Validate email format using basic regex
+            # Validate email format using basic regex for each email in the list
             # Basic email regex pattern: local_part@domain
             # Allows alphanumeric, dots, hyphens, underscores, and plus signs in local part
             # Requires @ symbol and domain with at least one dot
             email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
             
-            if not re.match(email_pattern, sender_email.strip()):
-                # Raise ValueError for invalid input
+            # Iterate over sender_emails list to validate each email
+            invalid_emails = []
+            for email in sender_emails:
+                if not email or not email.strip():
+                    invalid_emails.append("(empty)")
+                elif not re.match(email_pattern, email.strip()):
+                    invalid_emails.append(email)
+            
+            # Raise ValueError for invalid emails with descriptive message
+            if invalid_emails:
                 raise ValueError(
-                    f"Invalid email format: '{sender_email}'. "
-                    "Please provide a valid email address (e.g., user@example.com)."
+                    f"Invalid email format(s): {', '.join(invalid_emails)}. "
+                    "Please provide valid email addresses (e.g., user@example.com)."
                 )
             
-            # Normalize sender_email
-            sender_email = sender_email.strip()
+            # Normalize sender_emails (strip whitespace)
+            sender_emails = [email.strip() for email in sender_emails]
             
-            logger.info(f"Starting message retrieval for sender: {sender_email}")
+            # Update logger messages to reflect multiple senders
+            senders_str = ", ".join(sender_emails)
+            logger.info(f"Starting message retrieval for {len(sender_emails)} sender(s): {senders_str} (last {days} days)")
             
             try:
-                # Call _get_unread_messages with sender_email
-                raw_messages = self._get_unread_messages(sender_email)
+                # Update call to _get_unread_messages with new parameters
+                raw_messages = self._get_unread_messages(sender_emails, days)
             except RuntimeError as e:
                 # Handle authentication and API errors from _get_unread_messages
                 logger.error(
-                    f"Failed to retrieve messages from {sender_email}: {str(e)}",
+                    f"Failed to retrieve messages from {senders_str}: {str(e)}",
                     exc_info=True
                 )
                 return f"Error retrieving messages: {str(e)}"
@@ -941,7 +1000,7 @@ class GmailReaderTool(BaseTool):
             except Exception as e:
                 # Handle unexpected errors during message retrieval
                 logger.error(
-                    f"Unexpected error retrieving messages from {sender_email}: {str(e)}",
+                    f"Unexpected error retrieving messages from {senders_str}: {str(e)}",
                     exc_info=True
                 )
                 return f"An unexpected error occurred while retrieving messages: {str(e)}"
@@ -979,11 +1038,11 @@ class GmailReaderTool(BaseTool):
                     # Continue processing other messages
                     continue
             
-            logger.info(f"Processed {len(processed_messages)} message(s)")
+            logger.info(f"Processed {len(processed_messages)} message(s) from {len(sender_emails)} sender(s)")
             
             try:
-                # Call _format_output with processed messages and sender_email
-                formatted_output = self._format_output(processed_messages, sender_email)
+                # Update call to _format_output with new parameters
+                formatted_output = self._format_output(processed_messages, sender_emails, days)
                 
                 # Return formatted string
                 return formatted_output
@@ -1003,8 +1062,9 @@ class GmailReaderTool(BaseTool):
         
         except Exception as e:
             # Catch any unexpected errors at the top level
+            senders_str = ", ".join(sender_emails) if sender_emails else "(unknown)"
             logger.error(
-                f"Unexpected error in _run method for sender {sender_email}: {str(e)}",
+                f"Unexpected error in _run method for senders {senders_str}: {str(e)}",
                 exc_info=True
             )
             return (

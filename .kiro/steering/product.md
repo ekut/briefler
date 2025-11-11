@@ -1,18 +1,27 @@
-# Product Overview
+---
+inclusion: always
+---
 
-Briefler is an AI-powered email analysis tool that uses CrewAI to read and summarize unread Gmail messages. The tool authenticates with Gmail API using OAuth 2.0 and employs AI agents to analyze email content from specific senders, providing structured summaries with key insights and action items.
+# Product: Briefler
 
-## Core Functionality
+AI-powered email analysis using CrewAI multi-agent framework. Fetches unread Gmail messages via OAuth 2.0, analyzes content from specified senders, generates structured summaries with insights and action items.
 
-- Read unread emails from specified Gmail senders
-- Extract and decode email content (plain text, HTML, multipart)
-- Analyze email content using AI agents
-- Generate comprehensive summaries with key insights
-- Handle attachments metadata extraction
+## Capabilities
 
-## Use Cases
+Fetch unread emails from specific senders within time window (default 7 days). Process plain text, HTML, multipart/nested formats. Generate multilingual summaries (ISO 639-1 codes). Extract attachment metadata without downloading.
 
-- Stay on top of important communications from specific senders
-- Automate email triage and prioritization
-- Extract action items from notification emails
-- Analyze patterns in email communications
+## Flow Parameters
+
+- `sender_emails`: List[str] - Email addresses to filter (required)
+- `language`: str - ISO 639-1 code for output (default: "en")
+- `days`: int - Lookback period (default: 7)
+
+## Principles
+
+**Read-Only**: Gmail readonly scope, never modifies emails
+
+**Privacy**: Local credential storage, never committed
+
+**Resilience**: Handles malformed emails, API errors with retry logic
+
+**Extensibility**: Tool-based architecture for new sources/capabilities
