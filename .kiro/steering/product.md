@@ -4,25 +4,36 @@ inclusion: always
 
 # Product: Briefler
 
-AI-powered email analysis tool using CrewAI multi-agent framework. Fetches unread Gmail messages from specified senders and generates structured summaries with insights and action items.
+AI-powered email analysis using CrewAI. Fetches unread Gmail from specified senders and generates structured summaries with insights and action items.
 
-## Core Functionality
+## Core Behavior
 
-- Filters unread emails by sender within configurable time window (default: 7 days)
-- Processes all email formats: plain text, HTML, multipart/nested MIME
-- Generates multilingual summaries using ISO 639-1 language codes
-- Extracts attachment metadata (filename, size, type) without downloading content
-- Uses OAuth 2.0 with automatic token refresh
+**Email Processing:**
+- Filter unread emails by sender list within time window (default: 7 days)
+- Process MIME: text/plain, text/html, multipart/nested
+- Base64url decode with UTF-8 fallback
+- Extract attachment metadata only (filename, size, type) - never download
+- Strip HTML, preserve text formatting
 
-## Input Parameters
+**Output:**
+- Multilingual summaries using ISO 639-1 codes
+- Structured with insights and action items
+- Default language: English ("en")
 
-- `sender_emails`: List[str] - Required email addresses to filter
-- `language`: str - ISO 639-1 code for summary output (default: "en")
-- `days`: int - Lookback period in days (default: 7)
+## API Contract
 
-## Critical Constraints
+**Input:**
+- `sender_emails`: List[str] - Required
+- `language`: str - Optional, ISO 639-1 (default: "en")
+- `days`: int - Optional, lookback period (default: 7)
 
-- Read-only access: Uses `gmail.readonly` scope, never modifies emails
-- Privacy: Credentials stored locally, never committed to version control
-- Error handling: Implement exponential backoff retry for API calls
-- Email processing: Handle malformed emails gracefully with UTF-8 fallback
+**Legacy:**
+- `sender_email` (singular) supported but deprecated - convert to `sender_emails` list
+
+## Security
+
+- Use `gmail.readonly` scope only - never modify emails
+- Store credentials locally - never commit `.env`, `credentials.json`, `token.json`
+- OAuth: first run opens browser, token auto-refreshes
+- Exponential backoff for HTTP 429
+- Handle malformed emails gracefully

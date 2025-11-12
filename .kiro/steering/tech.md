@@ -2,53 +2,39 @@
 inclusion: always
 ---
 
-# Technology Stack & Commands
+# Technology Stack
 
-## Core Dependencies
-
+## Dependencies
 - Python: >=3.10, <3.14
 - Package Manager: UV
-- Build System: Hatchling
 - Framework: CrewAI v1.2.0
-- APIs: Google API Client (Gmail)
-- Validation: Pydantic
-- Config: Python-dotenv
+- Google API Client (Gmail), Pydantic, Python-dotenv
 
-## Common Commands
-
+## Commands
 ```bash
-# Install dependencies
+# Install
 crewai install
 
-# Run the flow
+# Run
 crewai run
 python src/briefler/main.py
-
-# Run with JSON payload
 python src/briefler/main.py '{"sender_emails": ["user@example.com"], "days": 7, "language": "en"}'
 
-# Visualize flow
+# Visualize
 crewai plot
 
-# Run examples
+# Examples
 python examples/gmail_crew_example.py
 python examples/gmail_reader_example.py
 ```
 
-## Environment Configuration
+## Environment Variables
+Required in `.env`:
+- `OPENAI_API_KEY`: OpenAI API key
+- `GMAIL_CREDENTIALS_PATH`: OAuth credentials path (supports `~` expansion)
+- `GMAIL_TOKEN_PATH`: Token storage path
 
-Required `.env` variables:
+Never commit `.env`, `credentials.json`, or `token.json`.
 
-```bash
-OPENAI_API_KEY=sk-...                              # OpenAI API key
-GMAIL_CREDENTIALS_PATH=~/path/to/credentials.json  # OAuth credentials (~ expansion supported)
-GMAIL_TOKEN_PATH=~/path/to/token.json              # Token storage location
-```
-
-Never commit `.env`, `credentials.json`, or `token.json` to version control.
-
-## Gmail OAuth Flow
-
-1. First run opens browser for authorization
-2. Token saved to `GMAIL_TOKEN_PATH` and auto-refreshes
-3. Subsequent runs use stored token
+## Gmail OAuth
+First run opens browser for authorization. Token auto-refreshes and persists to `GMAIL_TOKEN_PATH`.
