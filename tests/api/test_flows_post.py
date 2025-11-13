@@ -11,7 +11,7 @@ This module tests the synchronous Gmail analysis endpoint including:
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
-from datetime import datetime
+from datetime import datetime, timezone
 
 from api.main import app
 from api.models.responses import GmailAnalysisResponse
@@ -38,7 +38,7 @@ class TestPostGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=45.2
         )
         
@@ -86,7 +86,7 @@ class TestPostGmailReadEndpoint:
                 "language": "en",
                 "days": 14
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=60.5
         )
         
@@ -124,7 +124,7 @@ class TestPostGmailReadEndpoint:
                     "language": lang_code,
                     "days": 7
                 },
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 execution_time_seconds=40.0
             )
             
@@ -158,7 +158,7 @@ class TestPostGmailReadEndpoint:
                     "language": "en",
                     "days": days_value
                 },
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 execution_time_seconds=35.0
             )
             
@@ -450,7 +450,7 @@ class TestPostGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=40.0
         )
         

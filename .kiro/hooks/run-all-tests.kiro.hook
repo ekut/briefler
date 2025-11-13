@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Run All Tests",
+  "description": "Runs all tests in the tests/ folder.",
+  "version": "1",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run all tests in the tests/ directory using pytest. Execute the command: pytest tests/ -v"
+  }
+}

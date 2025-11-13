@@ -11,7 +11,7 @@ This module tests the Server-Sent Events streaming endpoint including:
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 from api.main import app
@@ -39,7 +39,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=45.2
         )
         
@@ -89,7 +89,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 14
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=60.5
         )
         
@@ -124,7 +124,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=30.0
         )
         
@@ -167,7 +167,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=42.0
         )
         
@@ -327,7 +327,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=35.0
         )
         
@@ -360,7 +360,7 @@ class TestStreamGmailReadEndpoint:
                     "language": lang_code,
                     "days": 7
                 },
-                timestamp=datetime.utcnow(),
+                timestamp=datetime.now(timezone.utc),
                 execution_time_seconds=40.0
             )
             
@@ -390,7 +390,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=30.0
         )
         
@@ -420,7 +420,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=50.0
         )
         
@@ -455,7 +455,7 @@ class TestStreamGmailReadEndpoint:
                 "language": "en",
                 "days": 7
             },
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             execution_time_seconds=40.0
         )
         

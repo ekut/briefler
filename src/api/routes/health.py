@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, status
 from fastapi.responses import JSONResponse
-from datetime import datetime
+from datetime import datetime, timezone
 import os
 from typing import Dict, Any
 
@@ -22,7 +22,7 @@ async def health_check() -> Dict[str, Any]:
     """
     return {
         "status": "healthy",
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -68,6 +68,6 @@ async def readiness_check() -> JSONResponse:
         content={
             "ready": ready,
             "checks": checks,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         }
     )
