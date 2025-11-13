@@ -1,6 +1,6 @@
 # Briefler
 
-A research project exploring the capabilities of building agentic applications using the [CrewAI](https://crewai.com) framework. This project demonstrates multi-agent system creation, external API integration, and code organization following CrewAI best practices.
+A research project exploring the capabilities of building agentic applications using the [CrewAI](https://crewai.com) framework and Spec-Driven Development (SDD) approach. This project demonstrates multi-agent system creation, external API integration, and code organization following CrewAI best practices, while using specifications to drive feature development.
 
 ## Documentation
 
@@ -12,15 +12,11 @@ A research project exploring the capabilities of building agentic applications u
 
 ### Component Specifications
 
-#### Gmail Reader Tool
-- [Requirements](.kiro/specs/gmail-reader-tool/requirements.md) - Gmail reader tool requirements
-- [Design](.kiro/specs/gmail-reader-tool/design.md) - architectural design
-- [Tasks](.kiro/specs/gmail-reader-tool/tasks.md) - implementation tasks
+The `.kiro/specs/` directory contains specifications for each feature or component added to the system. Each specification follows a structured format:
 
-#### CrewAI Structure Conversion
-- [Requirements](.kiro/specs/crewai-structure-conversion/requirements.md) - crew structure conversion requirements
-- [Design](.kiro/specs/crewai-structure-conversion/design.md) - crew architecture design
-- [Tasks](.kiro/specs/crewai-structure-conversion/tasks.md) - conversion tasks
+- **requirements.md** - defines the problem, goals, and functional requirements
+- **design.md** - describes the architectural design and implementation approach
+- **tasks.md** - breaks down the implementation into actionable tasks
 
 ### Usage Examples
 

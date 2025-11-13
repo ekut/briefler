@@ -6,11 +6,31 @@ inclusion: always
 
 ## Project Structure
 ```
-src/briefler/
-├── main.py                    # kickoff(), plot(), run_with_trigger()
-├── flows/gmail_read_flow/     # Flow orchestration (FlowState)
-├── crews/gmail_reader_crew/   # Crew + YAML config (agents.yaml, tasks.yaml)
-└── tools/                     # GmailReaderTool
+src/
+├── briefler/                  # CrewAI Core (CLI Mode)
+│   ├── main.py                # kickoff(), plot(), run_with_trigger()
+│   ├── flows/gmail_read_flow/ # Flow orchestration (FlowState)
+│   ├── crews/gmail_reader_crew/ # Crew + YAML config (agents.yaml, tasks.yaml)
+│   └── tools/                 # GmailReaderTool
+│
+└── api/                       # FastAPI Server (API Mode)
+    ├── main.py                # FastAPI app entry point
+    ├── routes/                # API endpoints
+    │   ├── flows.py           # POST /api/flows/gmail-read, GET /stream
+    │   ├── history.py         # GET /api/history, GET /{id}
+    │   └── health.py          # GET /health, GET /ready
+    ├── models/                # Pydantic schemas
+    │   ├── requests.py        # GmailAnalysisRequest
+    │   └── responses.py       # GmailAnalysisResponse, HistoryListResponse
+    ├── services/              # Business logic
+    │   ├── flow_service.py    # Flow orchestration, SSE streaming
+    │   └── history_service.py # JSON file storage (data/history/)
+    └── core/                  # Configuration
+        ├── config.py          # Settings (Pydantic BaseSettings)
+        └── logging.py         # Logging configuration
+
+data/
+└── history/                   # Analysis results (JSON files)
 ```
 
 ## CrewAI Patterns
@@ -36,6 +56,36 @@ src/briefler/
 - `plot()`: CLI for `crewai plot`
 - `run_with_trigger()`: JSON payload, supports legacy `sender_email` (singular)
 
+## FastAPI Patterns
+
+**Application Structure:**
+- Main app in `src/api/main.py` with CORS middleware
+- Routers organized by domain: flows, history, health
+- Automatic OpenAPI docs at `/docs` and `/redoc`
+
+**Request/Response Models:**
+- Use Pydantic models for validation
+- Define in `api/models/requests.py` and `api/models/responses.py`
+- Include Field descriptions and examples for OpenAPI docs
+- Use `@field_validator` for custom validation logic
+
+**Services:**
+- Business logic in `api/services/`
+- `FlowService`: Orchestrates GmailReadFlow execution, generates UUIDs, tracks metrics
+- `HistoryService`: Manages JSON file storage in `data/history/`
+
+**Error Handling:**
+- Global exception handlers for validation and unexpected errors
+- Return structured error responses: `{"error": "...", "message": "...", "details": {...}}`
+- Log full stack traces with `exc_info=True`
+- Sanitize error messages in production mode
+
+**Streaming:**
+- Use Server-Sent Events (SSE) for long-running operations
+- Return `StreamingResponse` with `media_type="text/event-stream"`
+- Event format: `event: {type}\ndata: {json}\n\n`
+- Event types: `progress`, `complete`, `error`
+
 ## Code Style
 
 **Naming:**
@@ -59,6 +109,17 @@ src/briefler/
 - Validate all `os.getenv()` for required vars
 - Use `os.path.expanduser()` for `~` paths
 - Never commit credentials
+- API settings via Pydantic BaseSettings (auto-loads from `.env`)
+
+## Testing
+
+**API Tests:**
+- Use `pytest` with `pytest-asyncio` for async tests
+- Use `httpx.AsyncClient` for API endpoint testing
+- Test structure: `tests/api/` with unit and integration tests
+- Mock Flow execution in unit tests
+- Integration tests validate full request/response cycle
+- Test CORS, validation errors, SSE streaming, error handling
 
 ## Gmail API
 
