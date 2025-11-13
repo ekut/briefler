@@ -4,3 +4,6 @@ lib/
 .DS_Store
 credentials.json
 token.json
+
+# History storage - keep directory but ignore JSON files
+data/history/*.json

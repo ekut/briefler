@@ -42,24 +42,30 @@ class TestHistoryEndpoints:
         return HistoryService(storage_dir=temp_history_dir, max_files=100)
     
     @pytest.fixture
-    async def sample_analyses(self, history_service_with_temp_dir):
+    def sample_analyses(self, history_service_with_temp_dir):
         """Create sample analysis files for testing."""
+        import asyncio
+        
         analyses = []
         
-        for i in range(5):
-            response = GmailAnalysisResponse(
-                analysis_id=f"test-uuid-{i}",
-                result=f"Analysis result {i} with some content that is longer than 200 characters to test the preview functionality. " * 3,
-                parameters={
-                    "sender_emails": [f"user{i}@example.com"],
-                    "language": "en",
-                    "days": 7 + i
-                },
-                timestamp=datetime(2025, 11, 12, 10, i, 0),
-                execution_time_seconds=40.0 + i
-            )
-            await history_service_with_temp_dir.save(response)
-            analyses.append(response)
+        async def create_samples():
+            for i in range(5):
+                response = GmailAnalysisResponse(
+                    analysis_id=f"test-uuid-{i}",
+                    result=f"Analysis result {i} with some content that is longer than 200 characters to test the preview functionality. " * 3,
+                    parameters={
+                        "sender_emails": [f"user{i}@example.com"],
+                        "language": "en",
+                        "days": 7 + i
+                    },
+                    timestamp=datetime(2025, 11, 12, 10, i, 0),
+                    execution_time_seconds=40.0 + i
+                )
+                await history_service_with_temp_dir.save(response)
+                analyses.append(response)
+        
+        # Run async code in sync fixture
+        asyncio.run(create_samples())
         
         return analyses, history_service_with_temp_dir
     
@@ -89,16 +95,17 @@ class TestHistoryEndpoints:
         assert data["limit"] == 20
         assert data["offset"] == 0
     
-    @pytest.mark.asyncio
-    async def test_get_history_with_items(self, sample_analyses):
+    def test_get_history_with_items(self, sample_analyses):
         """Test GET /api/history returns list of analyses.
         
         Requirements: 6.2
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         # Get history from service directly
-        result = await service.get_history(limit=20, offset=0)
+        result = asyncio.run(service.get_history(limit=20, offset=0))
         
         assert result.total == 5
         assert len(result.items) == 5
@@ -121,34 +128,36 @@ class TestHistoryEndpoints:
         # Verify preview is truncated
         assert len(first_item.preview) <= 203  # 200 chars + "..."
     
-    @pytest.mark.asyncio
-    async def test_get_history_pagination_limit(self, sample_analyses):
+    def test_get_history_pagination_limit(self, sample_analyses):
         """Test GET /api/history respects limit parameter.
         
         Requirements: 6.2
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         # Request only 2 items
-        result = await service.get_history(limit=2, offset=0)
+        result = asyncio.run(service.get_history(limit=2, offset=0))
         
         assert result.total == 5
         assert len(result.items) == 2
         assert result.limit == 2
         assert result.offset == 0
     
-    @pytest.mark.asyncio
-    async def test_get_history_pagination_offset(self, sample_analyses):
+    def test_get_history_pagination_offset(self, sample_analyses):
         """Test GET /api/history respects offset parameter.
         
         Requirements: 6.2
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         # Get first page
-        page1 = await service.get_history(limit=2, offset=0)
+        page1 = asyncio.run(service.get_history(limit=2, offset=0))
         # Get second page
-        page2 = await service.get_history(limit=2, offset=2)
+        page2 = asyncio.run(service.get_history(limit=2, offset=2))
         
         assert page1.total == 5
         assert page2.total == 5
@@ -158,16 +167,17 @@ class TestHistoryEndpoints:
         # Verify different items
         assert page1.items[0].analysis_id != page2.items[0].analysis_id
     
-    @pytest.mark.asyncio
-    async def test_get_history_pagination_beyond_total(self, sample_analyses):
+    def test_get_history_pagination_beyond_total(self, sample_analyses):
         """Test GET /api/history with offset beyond total returns empty.
         
         Requirements: 6.2
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         # Request items beyond available
-        result = await service.get_history(limit=10, offset=10)
+        result = asyncio.run(service.get_history(limit=10, offset=10))
         
         assert result.total == 5
         assert len(result.items) == 0
@@ -218,7 +228,10 @@ class TestHistoryEndpoints:
         """
         response = client.get("/api/history?limit=-1")
         
-        assert response.status_code == 422  # Validation error
+        # API returns 400 with ValidationError format
+        assert response.status_code == 400
+        data = response.json()
+        assert data["error"] == "ValidationError"
     
     def test_get_history_invalid_limit_zero(self):
         """Test GET /api/history rejects zero limit.
@@ -227,7 +240,10 @@ class TestHistoryEndpoints:
         """
         response = client.get("/api/history?limit=0")
         
-        assert response.status_code == 422  # Validation error
+        # API returns 400 with ValidationError format
+        assert response.status_code == 400
+        data = response.json()
+        assert data["error"] == "ValidationError"
     
     def test_get_history_invalid_limit_exceeds_max(self):
         """Test GET /api/history rejects limit > 100.
@@ -236,7 +252,10 @@ class TestHistoryEndpoints:
         """
         response = client.get("/api/history?limit=101")
         
-        assert response.status_code == 422  # Validation error
+        # API returns 400 with ValidationError format
+        assert response.status_code == 400
+        data = response.json()
+        assert data["error"] == "ValidationError"
     
     def test_get_history_invalid_offset_negative(self):
         """Test GET /api/history rejects negative offset.
@@ -245,19 +264,23 @@ class TestHistoryEndpoints:
         """
         response = client.get("/api/history?offset=-1")
         
-        assert response.status_code == 422  # Validation error
+        # API returns 400 with ValidationError format
+        assert response.status_code == 400
+        data = response.json()
+        assert data["error"] == "ValidationError"
     
-    @pytest.mark.asyncio
-    async def test_get_analysis_by_id_success(self, sample_analyses):
+    def test_get_analysis_by_id_success(self, sample_analyses):
         """Test GET /api/history/{analysis_id} returns specific analysis.
         
         Requirements: 6.3
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         # Get first analysis
         analysis_id = analyses[0].analysis_id
-        result = await service.get_by_id(analysis_id)
+        result = asyncio.run(service.get_by_id(analysis_id))
         
         assert result is not None
         assert result.analysis_id == analysis_id
@@ -265,16 +288,17 @@ class TestHistoryEndpoints:
         assert result.parameters == analyses[0].parameters
         assert result.execution_time_seconds == analyses[0].execution_time_seconds
     
-    @pytest.mark.asyncio
-    async def test_get_analysis_by_id_not_found(self, sample_analyses):
+    def test_get_analysis_by_id_not_found(self, sample_analyses):
         """Test GET /api/history/{analysis_id} returns None for non-existent ID.
         
         Requirements: 6.3
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         # Try to get non-existent analysis
-        result = await service.get_by_id("non-existent-uuid")
+        result = asyncio.run(service.get_by_id("non-existent-uuid"))
         
         assert result is None
     
@@ -295,16 +319,17 @@ class TestHistoryEndpoints:
         assert "detail" in data
         assert "not found" in data["detail"].lower()
     
-    @pytest.mark.asyncio
-    async def test_get_analysis_by_id_full_content(self, sample_analyses):
+    def test_get_analysis_by_id_full_content(self, sample_analyses):
         """Test GET /api/history/{analysis_id} returns full result text.
         
         Requirements: 6.3
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
         analysis_id = analyses[0].analysis_id
-        result = await service.get_by_id(analysis_id)
+        result = asyncio.run(service.get_by_id(analysis_id))
         
         # Verify full content is returned (not truncated like preview)
         assert len(result.result) > 200
@@ -390,15 +415,16 @@ class TestHistoryEndpoints:
         assert retrieved.result == response.result
         assert retrieved.parameters == response.parameters
     
-    @pytest.mark.asyncio
-    async def test_history_metadata_accuracy(self, sample_analyses):
+    def test_history_metadata_accuracy(self, sample_analyses):
         """Test history items contain accurate metadata.
         
         Requirements: 6.2
         """
+        import asyncio
+        
         analyses, service = sample_analyses
         
-        result = await service.get_history(limit=20, offset=0)
+        result = asyncio.run(service.get_history(limit=20, offset=0))
         
         for item in result.items:
             # Find corresponding original analysis

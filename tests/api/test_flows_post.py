@@ -490,6 +490,6 @@ class TestPostGmailReadEndpoint:
         
         assert response.status_code == 500
         data = response.json()
-        assert "error" in data
+        # Global exception handler returns consistent format
         assert data["error"] == "InternalServerError"
         assert "message" in data

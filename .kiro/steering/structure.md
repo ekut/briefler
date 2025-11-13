@@ -4,6 +4,33 @@ inclusion: always
 
 # Architecture & Code Conventions
 
+## Backward Compatibility
+
+**CRITICAL: When implementing new features that modify existing code:**
+
+- **NEVER break existing API contracts** - existing request/response schemas must remain unchanged
+- **ONLY ADD new optional fields** - never modify or remove existing fields
+- **EXTEND, don't replace** - add new functionality alongside existing code
+- **Preserve existing behavior** - existing tests must continue to pass without modification
+- **Test backward compatibility** - run all existing tests before and after changes
+- **If breaking changes are unavoidable** - they must be explicitly documented in the spec requirements
+
+**Example of correct approach:**
+```python
+# GOOD: Adding optional field
+message_data = {
+    'subject': '...',      # existing field
+    'body': '...',         # existing field
+    'image_urls': []       # NEW optional field
+}
+
+# BAD: Changing existing field structure
+message_data = {
+    'subject': {'text': '...', 'html': '...'},  # BREAKS existing code!
+    'body': '...'
+}
+```
+
 ## Project Structure
 ```
 src/

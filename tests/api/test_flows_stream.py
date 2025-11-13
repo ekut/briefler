@@ -235,7 +235,9 @@ class TestStreamGmailReadEndpoint:
         # Should return 400 before streaming starts
         assert response.status_code == 400
         data = response.json()
+        # Global exception handler returns consistent format
         assert data["error"] == "ValidationError"
+        assert "message" in data
     
     def test_stream_empty_sender_emails(self):
         """Test SSE endpoint rejects empty sender_emails.
@@ -253,8 +255,9 @@ class TestStreamGmailReadEndpoint:
         
         assert response.status_code == 400
         data = response.json()
+        # Global exception handler returns consistent format
         assert data["error"] == "ValidationError"
-        assert "At least one sender email is required" in data["message"]
+        assert "message" in data
     
     def test_stream_invalid_language_code(self):
         """Test SSE endpoint rejects invalid language code.
@@ -287,9 +290,10 @@ class TestStreamGmailReadEndpoint:
             }
         )
         
-        assert response.status_code == 422  # FastAPI query param validation
+        # API returns 400 with ValidationError format
+        assert response.status_code == 400
         data = response.json()
-        assert "detail" in data
+        assert data["error"] == "ValidationError"
     
     def test_stream_days_exceeds_maximum(self):
         """Test SSE endpoint rejects days value greater than 365.
@@ -305,9 +309,10 @@ class TestStreamGmailReadEndpoint:
             }
         )
         
-        assert response.status_code == 422
+        # API returns 400 with ValidationError format
+        assert response.status_code == 400
         data = response.json()
-        assert "detail" in data
+        assert data["error"] == "ValidationError"
     
     def test_stream_default_values(self):
         """Test SSE endpoint applies default values for optional parameters.

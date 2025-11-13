@@ -5,6 +5,7 @@ registers routers, and sets up global exception handlers.
 """
 
 import logging
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,8 +23,30 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Manage application lifespan events.
+    
+    Handles startup and shutdown logic for the FastAPI application.
+    """
+    # Startup
+    logger.info("=" * 60)
+    logger.info("Briefler API starting up")
+    logger.info(f"Environment: {settings.ENVIRONMENT}")
+    logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
+    logger.info(f"History Storage: {settings.HISTORY_STORAGE_DIR}")
+    logger.info(f"OpenAPI Docs: http://{settings.API_HOST}:{settings.API_PORT}/docs")
+    logger.info("=" * 60)
+    
+    yield
+    
+    # Shutdown
+    logger.info("Briefler API shutting down")
+
+
 # Initialize FastAPI application
 app = FastAPI(
+    lifespan=lifespan,
     title="Briefler API",
     description=(
         "REST API for Gmail analysis using CrewAI. "
@@ -66,7 +89,42 @@ app.include_router(
 )
 
 
+# Import custom exceptions
+from api.core.exceptions import APIError
+
+
 # Global exception handlers
+
+@app.exception_handler(APIError)
+async def api_error_handler(
+    request: Request,
+    exc: APIError
+) -> JSONResponse:
+    """Handle custom API errors.
+    
+    Catches APIError exceptions and returns a structured error response
+    with consistent formatting across all endpoints.
+    
+    Args:
+        request: The incoming request that caused the error
+        exc: The APIError exception
+        
+    Returns:
+        JSONResponse with appropriate status code and error details
+    """
+    logger.warning(
+        f"API error on {request.method} {request.url.path}: {exc.message}"
+    )
+    
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.error,
+            "message": exc.message,
+            "details": exc.details
+        }
+    )
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(
@@ -143,26 +201,6 @@ async def global_exception_handler(
             "details": details
         }
     )
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event():
-    """Log application startup information."""
-    logger.info("=" * 60)
-    logger.info("Briefler API starting up")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"CORS Origins: {settings.CORS_ORIGINS}")
-    logger.info(f"History Storage: {settings.HISTORY_STORAGE_DIR}")
-    logger.info(f"OpenAPI Docs: http://{settings.API_HOST}:{settings.API_PORT}/docs")
-    logger.info("=" * 60)
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Log application shutdown."""
-    logger.info("Briefler API shutting down")
 
 
 # Root endpoint

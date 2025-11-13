@@ -1,5 +1,6 @@
 """Application configuration using Pydantic Settings."""
 
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from typing import List
 
@@ -9,6 +10,12 @@ class Settings(BaseSettings):
     
     All settings can be configured via environment variables or .env file.
     """
+    
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore"  # Ignore extra environment variables not defined in Settings
+    )
     
     # API Configuration
     API_HOST: str = "0.0.0.0"
@@ -24,12 +31,6 @@ class Settings(BaseSettings):
     
     # Environment
     ENVIRONMENT: str = "development"
-    
-    class Config:
-        """Pydantic configuration."""
-        env_file = ".env"
-        case_sensitive = True
-        extra = "ignore"  # Ignore extra environment variables not defined in Settings
 
 
 # Global settings instance

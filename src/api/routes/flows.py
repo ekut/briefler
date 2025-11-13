@@ -13,6 +13,7 @@ from typing import List
 from api.models.requests import GmailAnalysisRequest
 from api.models.responses import GmailAnalysisResponse, ErrorResponse
 from api.services.flow_service import FlowService
+from api.core.exceptions import ValidationError as APIValidationError, InternalServerError
 
 
 logger = logging.getLogger(__name__)
@@ -80,25 +81,14 @@ async def analyze_emails(request: GmailAnalysisRequest) -> GmailAnalysisResponse
     except ValueError as e:
         # Validation errors from flow execution
         logger.warning(f"Validation error in flow execution: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "ValidationError",
-                "message": str(e),
-                "details": None
-            }
-        )
+        raise APIValidationError(message=str(e))
         
     except Exception as e:
         # Unexpected errors during flow execution
         logger.error(f"Flow execution failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "error": "InternalServerError",
-                "message": "An error occurred during flow execution",
-                "details": str(e)
-            }
+        raise InternalServerError(
+            message="An error occurred during flow execution",
+            details=str(e)
         )
 
 
@@ -134,20 +124,20 @@ async def analyze_emails_stream(
     sender_emails: str = Query(
         ...,
         description="Comma-separated list of sender email addresses",
-        example="user@example.com,another@example.com"
+        examples=["user@example.com,another@example.com"]
     ),
     language: str = Query(
         default="en",
         description="ISO 639-1 language code for output",
         pattern="^[a-z]{2}$",
-        example="en"
+        examples=["en"]
     ),
     days: int = Query(
         default=7,
         description="Number of days to look back",
         ge=1,
         le=365,
-        example=7
+        examples=[7]
     )
 ) -> StreamingResponse:
     """Execute Gmail analysis flow with SSE progress updates.
@@ -176,14 +166,7 @@ async def analyze_emails_stream(
         emails_list = [email.strip() for email in sender_emails.split(",") if email.strip()]
         
         if not emails_list:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "ValidationError",
-                    "message": "At least one sender email is required",
-                    "details": None
-                }
-            )
+            raise APIValidationError(message="At least one sender email is required")
         
         logger.info(
             f"Received streaming analysis request for {len(emails_list)} sender(s), "
@@ -211,11 +194,4 @@ async def analyze_emails_stream(
     except ValueError as e:
         # Validation errors from Pydantic model
         logger.warning(f"Validation error in streaming request: {e}")
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "ValidationError",
-                "message": str(e),
-                "details": None
-            }
-        )
+        raise APIValidationError(message=str(e))
