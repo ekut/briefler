@@ -22,6 +22,8 @@ from googleapiclient.errors import HttpError
 from google.auth.exceptions import RefreshError
 import json
 
+from briefler.tools.image_extractor import ImageExtractor
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -534,13 +536,131 @@ class GmailReaderTool(BaseTool):
         
         return attachments
     
+    def _should_process_images(self) -> bool:
+        """Check if image processing is enabled via feature flag.
+        
+        Returns:
+            True if IMAGE_PROCESSING_ENABLED is set to 'true', False otherwise.
+        """
+        return os.getenv('IMAGE_PROCESSING_ENABLED', 'false').lower() == 'true'
+    
+    def _extract_html_content(self, payload: dict) -> str:
+        """Extract HTML content from message payload for image extraction.
+        
+        This method traverses the payload to find HTML content without decoding
+        it to plain text. It's used specifically for image extraction.
+        
+        Args:
+            payload: Gmail API message payload dictionary.
+        
+        Returns:
+            Raw HTML content as a string, or empty string if no HTML found.
+        """
+        try:
+            mime_type = payload.get('mimeType', '')
+            
+            # Handle text/html directly
+            if mime_type == 'text/html':
+                body_data = payload.get('body', {}).get('data', '')
+                if body_data:
+                    try:
+                        return self._decode_body_content(body_data)
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to decode HTML body content: {str(e)}",
+                            extra={"mime_type": mime_type, "error": str(e)},
+                            exc_info=True
+                        )
+                        return ''
+                return ''
+            
+            # Handle multipart messages
+            elif mime_type.startswith('multipart/'):
+                parts = payload.get('parts', [])
+                if not parts:
+                    logger.debug(f"Multipart message has no parts (mime_type: {mime_type})")
+                    return ''
+                
+                # Recursively search for HTML content
+                def find_html_in_parts(parts_list):
+                    try:
+                        for part in parts_list:
+                            part_mime_type = part.get('mimeType', '')
+                            
+                            if part_mime_type == 'text/html':
+                                body_data = part.get('body', {}).get('data', '')
+                                if body_data:
+                                    try:
+                                        return self._decode_body_content(body_data)
+                                    except Exception as e:
+                                        logger.error(
+                                            f"Failed to decode HTML part: {str(e)}",
+                                            extra={"part_mime_type": part_mime_type, "error": str(e)},
+                                            exc_info=True
+                                        )
+                                        continue
+                            
+                            # Recursively check nested parts
+                            elif part_mime_type.startswith('multipart/'):
+                                nested_parts = part.get('parts', [])
+                                if nested_parts:
+                                    html_content = find_html_in_parts(nested_parts)
+                                    if html_content:
+                                        return html_content
+                        
+                        return ''
+                    except Exception as e:
+                        logger.error(
+                            f"Error traversing message parts: {str(e)}",
+                            extra={"error": str(e)},
+                            exc_info=True
+                        )
+                        return ''
+                
+                return find_html_in_parts(parts)
+            
+            else:
+                logger.debug(f"Unsupported mime type for HTML extraction: {mime_type}")
+            
+            return ''
+            
+        except Exception as e:
+            logger.error(
+                f"Error extracting HTML content: {str(e)}",
+                extra={"error": str(e), "error_type": type(e).__name__},
+                exc_info=True
+            )
+            return ''
+    
+    def _has_images_in_html(self, payload: dict) -> bool:
+        """Check if payload contains HTML with image tags.
+        
+        Args:
+            payload: Gmail API message payload dictionary.
+        
+        Returns:
+            True if HTML content contains <img> tags, False otherwise.
+        """
+        try:
+            html_content = self._extract_html_content(payload)
+            if html_content:
+                # Simple check for <img tags
+                return '<img' in html_content.lower()
+            return False
+        except Exception as e:
+            logger.debug(
+                f"Error checking for images in HTML: {str(e)}",
+                extra={"error": str(e)}
+            )
+            return False
+    
     def _extract_message_data(self, message: dict) -> dict:
         """Extract structured data from a Gmail message.
         
         This method parses a Gmail API message object and extracts key information
         including message ID, thread ID, snippet, headers (Subject, From, Date),
-        body content, and attachment metadata. It returns a structured dictionary
-        that can be easily processed by other methods.
+        body content, attachment metadata, and image URLs. It returns a structured 
+        dictionary that can be easily processed by other methods.
         
         Args:
             message: Gmail API message dictionary with full format.
@@ -555,7 +675,8 @@ class GmailReaderTool(BaseTool):
                 "from": str,            # Sender email and name
                 "date": str,            # Date sent
                 "body": str,            # Decoded message body (to be populated by _decode_message_body)
-                "attachments": []       # List of attachment metadata
+                "attachments": [],      # List of attachment metadata
+                "image_urls": []        # List of external HTTPS image URLs
             }
         
         Raises:
@@ -583,7 +704,8 @@ class GmailReaderTool(BaseTool):
                 'from': '',
                 'date': '',
                 'body': '',
-                'attachments': []
+                'attachments': [],
+                'image_urls': []
             }
             
             # Extract Subject, From, and Date headers
@@ -603,7 +725,79 @@ class GmailReaderTool(BaseTool):
             if parts:
                 message_data['attachments'] = self._extract_attachments(parts)
             
-            # Note: Body will be decoded by _decode_message_body method (task 5.3-5.6)
+            # Extract image URLs if image processing is enabled
+            if self._should_process_images():
+                try:
+                    html_content = self._extract_html_content(payload)
+                    if html_content:
+                        try:
+                            image_extractor = ImageExtractor()
+                            image_refs = image_extractor.extract_images_from_html(html_content, message_id)
+                            message_data['image_urls'] = [ref.external_url for ref in image_refs]
+                            
+                            if image_refs:
+                                logger.info(
+                                    f"Found {len(image_refs)} image(s) in message {message_id}",
+                                    extra={
+                                        "message_id": message_id,
+                                        "image_count": len(image_refs)
+                                    }
+                                )
+                            else:
+                                logger.debug(
+                                    f"No valid images found in message {message_id}",
+                                    extra={"message_id": message_id}
+                                )
+                        except Exception as e:
+                            logger.error(
+                                f"Image extraction failed for message {message_id}: {str(e)}",
+                                extra={
+                                    "message_id": message_id,
+                                    "error": str(e),
+                                    "error_type": type(e).__name__
+                                },
+                                exc_info=True
+                            )
+                            # Continue processing without images - don't fail the entire message
+                            message_data['image_urls'] = []
+                    else:
+                        logger.debug(
+                            f"No HTML content found for image extraction in message {message_id}",
+                            extra={"message_id": message_id}
+                        )
+                except Exception as e:
+                    logger.error(
+                        f"Failed to extract HTML content for message {message_id}: {str(e)}",
+                        extra={
+                            "message_id": message_id,
+                            "error": str(e),
+                            "error_type": type(e).__name__
+                        },
+                        exc_info=True
+                    )
+                    # Continue processing without images
+                    message_data['image_urls'] = []
+            else:
+                # Check if images are present but processing is disabled
+                try:
+                    if self._has_images_in_html(payload):
+                        logger.warning(
+                            f"Image processing is disabled but message {message_id} contains images. "
+                            "Set IMAGE_PROCESSING_ENABLED=true to enable image text extraction.",
+                            extra={
+                                "message_id": message_id,
+                                "feature_flag": "IMAGE_PROCESSING_ENABLED",
+                                "current_value": "false"
+                            }
+                        )
+                except Exception as e:
+                    # Don't fail if we can't check for images
+                    logger.debug(
+                        f"Could not check for images in message {message_id}: {str(e)}",
+                        extra={"message_id": message_id, "error": str(e)}
+                    )
+            
+            # Note: Body will be decoded by _decode_message_body method
             
             logger.debug(f"Extracted data for message {message_id}: {message_data['subject']}")
             
@@ -848,6 +1042,7 @@ class GmailReaderTool(BaseTool):
         - A header with message count and sender emails
         - Individual message sections with headers and body
         - Attachment information if present
+        - Image URLs in IMAGES_FOR_PROCESSING section if present
         - Appropriate message if no unread messages exist
         
         Args:
@@ -918,6 +1113,15 @@ class GmailReaderTool(BaseTool):
                     # Include mime type and size
                     output_lines.append(f"- {filename} ({mime_type}, {size} bytes)")
                 
+                output_lines.append("")
+            
+            # Format image URLs for Vision Agent processing
+            image_urls = message.get('image_urls', [])
+            if image_urls:
+                output_lines.append("---")
+                output_lines.append(f"IMAGES_FOR_PROCESSING: {len(image_urls)}")
+                for img_idx, url in enumerate(image_urls, 1):
+                    output_lines.append(f"IMAGE_{img_idx}: {url}")
                 output_lines.append("")
         
         return "\n".join(output_lines)

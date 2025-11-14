@@ -22,6 +22,71 @@ The `.kiro/specs/` directory contains specifications for each feature or compone
 
 - [Examples README](examples/README.md) - Gmail Reader Tool usage examples
 
+## Image Text Extraction
+
+The Gmail Reader Crew can extract text from images embedded in emails using AI vision capabilities. This feature processes external image URLs (HTTPS) and extracts any visible text content, enriching the email analysis with information that would otherwise be missed.
+
+### How It Works
+
+1. **Image Detection**: The system identifies external image URLs in email HTML content
+2. **Vision Processing**: A specialized Vision Agent uses AI vision models to extract text from each image
+3. **Content Integration**: Extracted text is combined with email content for comprehensive analysis
+
+### Configuration
+
+Enable image processing by adding these environment variables to your `.env` file:
+
+```bash
+# Enable/disable image processing feature
+IMAGE_PROCESSING_ENABLED=true
+
+# Maximum image size to process (in MB)
+IMAGE_MAX_SIZE_MB=10
+
+# Timeout for processing all images in one email (seconds)
+IMAGE_PROCESSING_TIMEOUT=60
+
+# Maximum number of images to process per email
+IMAGE_MAX_PER_EMAIL=5
+
+# Optional: Restrict image processing to specific domains (comma-separated)
+# If not set, all HTTPS URLs are allowed
+IMAGE_ALLOWED_DOMAINS=googleusercontent.com,gstatic.com,cdn.example.com
+```
+
+### Feature Flag
+
+The `IMAGE_PROCESSING_ENABLED` flag controls whether images are processed:
+
+- **`true`**: Images are detected and text is extracted using AI vision
+- **`false`** (default): Images are ignored, only email text is analyzed
+
+### Security Considerations
+
+- Only HTTPS URLs are processed (HTTP URLs are rejected for security)
+- Optional domain whitelist (`IMAGE_ALLOWED_DOMAINS`) restricts which sources are trusted
+- If no whitelist is configured, all HTTPS URLs are allowed
+- Images exceeding size limits are automatically skipped
+
+### Supported Image Sources
+
+**Currently Supported (MVP):**
+- External URLs (e.g., `https://cdn.example.com/image.png`)
+- Common in newsletters, marketing emails, and notifications
+- Covers ~95% of promotional emails with embedded images
+
+**Future Support:**
+- Gmail attachments (CID references)
+- Base64 inline images
+
+### Example Use Cases
+
+- **Newsletters**: Extract promotional text from banner images
+- **Marketing Emails**: Capture offer details embedded in graphics
+- **Bank Notifications**: Extract transaction details from statement images
+- **Event Invitations**: Capture event information from flyer images
+- **Receipts**: Extract purchase details from receipt images
+
 ## Enhanced Input Parameters
 
 The Gmail Reader Crew supports flexible input parameters for customized email analysis:

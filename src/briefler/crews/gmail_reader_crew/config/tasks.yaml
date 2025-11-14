@@ -1,3 +1,43 @@
+extract_text_from_images:
+  description: >
+    You will receive email content from the GmailReaderTool. Look for a section marked 
+    "IMAGES_FOR_PROCESSING" which lists image URLs in the format:
+    
+    IMAGES_FOR_PROCESSING: <count>
+    IMAGE_1: <url>
+    IMAGE_2: <url>
+    ...
+    
+    Your task is to process EACH image URL using the VisionTool to extract ONLY the text 
+    content visible in each image.
+    
+    CRITICAL RULES:
+    - Use VisionTool for EACH image URL listed in the IMAGES_FOR_PROCESSING section
+    - Extract only text characters, words, and sentences visible in each image
+    - Preserve line breaks and paragraph structure where visible
+    - Do NOT describe what the image shows (people, objects, colors, layout)
+    - Do NOT provide context or interpretation
+    - If no text is visible in an image, note "No text found" for that image
+    - If text is partially obscured or unclear, extract what is legible
+    - Process ALL images in the list, one by one
+    - If no IMAGES_FOR_PROCESSING section is found, return "No images to process"
+    
+    For each image, output the extracted text with a clear marker indicating which image it came from.
+    
+  expected_output: >
+    For each image in the IMAGES_FOR_PROCESSING section, provide:
+    
+    [Image 1: <url>]
+    <extracted_text_or_"No text found">
+    
+    [Image 2: <url>]
+    <extracted_text_or_"No text found">
+    
+    ...and so on for all images.
+    
+    If no IMAGES_FOR_PROCESSING section exists or no images contain text, return "No images to process" or "No text found in any images."
+  agent: image_text_extractor
+
 cleanup_email_content:
   description: >
     Read all unread emails from these senders: {sender_emails} received in the last 
@@ -23,6 +63,8 @@ cleanup_email_content:
     
     CRITICAL PRESERVATION RULES:
     - **PRESERVE THE COMPLETE MESSAGE BODY** - do not remove any content from the main message
+    - **PRESERVE ALL IMAGES_FOR_PROCESSING SECTIONS** - if the email contains a section marked 
+      "IMAGES_FOR_PROCESSING" with image URLs, you MUST preserve it EXACTLY as is
     - Preserve ALL promotional content, offers, and announcements from the message body
     - Preserve ALL action items, deadlines, and important details from the message body
     - Only remove template elements from headers (before message body) and footers (after message body)
@@ -44,12 +86,23 @@ cleanup_email_content:
     - Sender
     - Timestamp
     - Cleaned message body (boilerplate removed)
+    - IMAGES_FOR_PROCESSING section (if present in the original email data)
   expected_output: >
     A structured list of emails with cleaned content:
     - Subject line
     - Sender email address
     - Timestamp
     - Message body with boilerplate content removed
+    - IMAGES_FOR_PROCESSING section with all image URLs (if present)
+    
+    CRITICAL: If the email data contains a section like:
+    ---
+    IMAGES_FOR_PROCESSING: 17
+    IMAGE_1: https://...
+    IMAGE_2: https://...
+    ...
+    
+    You MUST include this EXACT section in your output so the next task can process the images.
     
     The output should contain only message-specific information without 
     footers, legal disclaimers, or repetitive organizational metadata.
@@ -57,12 +110,15 @@ cleanup_email_content:
 
 analyze_emails:
   description: >
-    Based on the cleaned email content provided, create a comprehensive summary 
+    Based on the cleaned email content and extracted image texts provided, create a comprehensive summary 
     in {language} language.
     
     The content has already been cleaned to remove headers, footers, and boilerplate.
+    If image text extraction was performed, those texts have been provided as well.
+    
     Focus on extracting and organizing:
     - Key information and main points from each message
+    - Information extracted from images (if provided)
     - Action items and requests
     - Deadlines and time-sensitive information
     - Overall priority assessment
@@ -75,9 +131,8 @@ analyze_emails:
     A structured summary of emails in {language} language including:
     - Total message count
     - List of subjects with timestamps
-    - Key information and action items from each message
+    - Key information and action items from each message (including image content if available)
     - Overall priority assessment
     
     The entire output must be written in {language} language.
   agent: email_analyst
-  context: [cleanup_email_content]

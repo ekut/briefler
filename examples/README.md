@@ -1,9 +1,10 @@
 # Gmail Reader Tool Examples
 
-This directory contains example scripts demonstrating two approaches for working with Gmail in CrewAI:
+This directory contains example scripts demonstrating different approaches for working with Gmail in CrewAI:
 
 1. **Direct Tool Usage** (`gmail_reader_example.py`) - Using GmailReaderTool directly with agents
 2. **Crew Structure** (`gmail_crew_example.py`) - Using the structured GmailReaderCrew with YAML configs
+3. **Image Text Extraction** (`gmail_image_extraction_example.py`) - Analyzing emails with image text extraction enabled
 
 ## Prerequisites
 
@@ -83,7 +84,27 @@ This demonstrates:
 - Manual agent and task creation
 - Inline configuration
 
-**First Run**: The first time you run either example, it will open your browser for Gmail authentication. After authorizing, a `token.json` file will be created for future use.
+### Image Text Extraction Example
+
+Demonstrates email analysis with AI-powered image text extraction:
+
+```bash
+python examples/gmail_image_extraction_example.py
+```
+
+This demonstrates:
+- Configuration check for image processing settings
+- Analyzing marketing emails with embedded images
+- Extracting text from promotional banners and graphics
+- Processing multiple senders with image content
+- Custom language support with image extraction
+
+**Prerequisites for Image Extraction**:
+- Set `IMAGE_PROCESSING_ENABLED=true` in your `.env` file
+- Configure optional settings like `IMAGE_ALLOWED_DOMAINS` for security
+- Ensure your OpenAI API key supports vision-capable models
+
+**First Run**: The first time you run any example, it will open your browser for Gmail authentication. After authorizing, a `token.json` file will be created for future use.
 
 ## Usage Examples
 
@@ -326,6 +347,86 @@ Modify the script directly:
 4. **Agent behavior**: Update `role`, `goal`, or `backstory` in Agent constructor
 5. **Task descriptions**: Modify the Task `description` and `expected_output`
 6. **Additional tools**: Add more tools to the agent's `tools` list
+
+## Image Text Extraction
+
+The Gmail Reader Crew can extract text from images embedded in emails using AI vision capabilities. This is particularly useful for:
+
+- **Marketing emails**: Extract promotional text from banner images
+- **Newsletters**: Capture offer details embedded in graphics
+- **Bank notifications**: Extract transaction details from statement images
+- **Event invitations**: Capture event information from flyer images
+
+### Configuration
+
+To enable image text extraction, add these variables to your `.env` file:
+
+```bash
+# Enable image processing
+IMAGE_PROCESSING_ENABLED=true
+
+# Optional: Configure limits and security
+IMAGE_MAX_SIZE_MB=10
+IMAGE_PROCESSING_TIMEOUT=60
+IMAGE_MAX_PER_EMAIL=5
+
+# Optional: Restrict to trusted domains (comma-separated)
+IMAGE_ALLOWED_DOMAINS=googleusercontent.com,gstatic.com,cdn.example.com
+```
+
+### How It Works
+
+1. **Detection**: The system identifies external image URLs (HTTPS) in email HTML
+2. **Extraction**: A Vision Agent uses AI vision models to extract text from each image
+3. **Integration**: Extracted text is combined with email content for comprehensive analysis
+
+### Security
+
+- Only HTTPS URLs are processed (HTTP rejected for security)
+- Optional domain whitelist restricts which sources are trusted
+- Images exceeding size limits are automatically skipped
+- If no whitelist is set, all HTTPS URLs are allowed
+
+### Example Usage
+
+```python
+from briefler.flows.gmail_read_flow import GmailReadFlow
+
+# Ensure IMAGE_PROCESSING_ENABLED=true in .env
+flow = GmailReadFlow()
+
+# Analyze marketing emails (likely to contain images)
+result = flow.kickoff({
+    "crewai_trigger_payload": {
+        "sender_emails": ["newsletter@company.com"],
+        "language": "en",
+        "days": 7
+    }
+})
+```
+
+The analysis result will include text extracted from any images found in the emails, providing a more complete understanding of the email content.
+
+### Supported Image Sources
+
+**Currently Supported (MVP)**:
+- External URLs (e.g., `https://cdn.example.com/image.png`)
+- Common in newsletters, marketing emails, and notifications
+- Covers ~95% of promotional emails with embedded images
+
+**Future Support**:
+- Gmail attachments (CID references)
+- Base64 inline images
+
+### Configuration Check
+
+Run the image extraction example to verify your configuration:
+
+```bash
+python examples/gmail_image_extraction_example.py
+```
+
+The script will check your environment variables and show which settings are configured before running the examples.
 
 ## Troubleshooting
 
