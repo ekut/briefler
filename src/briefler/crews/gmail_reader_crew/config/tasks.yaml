@@ -22,20 +22,72 @@ extract_text_from_images:
     - Process ALL images in the list, one by one
     - If no IMAGES_FOR_PROCESSING section is found, return "No images to process"
     
-    For each image, output the extracted text with a clear marker indicating which image it came from.
+    STRUCTURED OUTPUT FORMAT:
+    You MUST return your response as a JSON object with the following structure:
+    {
+      "extracted_texts": [
+        {
+          "image_url": "https://example.com/image1.jpg",
+          "extracted_text": "Text found in the image or 'No text found'",
+          "has_text": true
+        }
+      ],
+      "total_images_processed": 3,
+      "images_with_text": 2
+    }
+    
+    IMPORTANT JSON FORMATTING RULES:
+    - Each image URL from IMAGES_FOR_PROCESSING must have an entry in extracted_texts array
+    - Set has_text to true if text was found, false if no text was found
+    - If no text is found, set extracted_text to "No text found"
+    - total_images_processed should equal the count from IMAGES_FOR_PROCESSING
+    - images_with_text should count how many images had has_text=true
+    - If no IMAGES_FOR_PROCESSING section exists, return empty extracted_texts array with counts of 0
     
   expected_output: >
-    For each image in the IMAGES_FOR_PROCESSING section, provide:
+    A JSON object containing extracted text from all images with the following structure:
     
-    [Image 1: <url>]
-    <extracted_text_or_"No text found">
+    {
+      "extracted_texts": [
+        {
+          "image_url": "string - URL of the image",
+          "extracted_text": "string - Text extracted from the image or 'No text found'",
+          "has_text": "boolean - true if text was found, false otherwise"
+        }
+      ],
+      "total_images_processed": "integer - Total number of images processed",
+      "images_with_text": "integer - Number of images that contained text"
+    }
     
-    [Image 2: <url>]
-    <extracted_text_or_"No text found">
+    Example:
+    {
+      "extracted_texts": [
+        {
+          "image_url": "https://example.com/banner.jpg",
+          "extracted_text": "Welcome to our Newsletter\nNovember 2025 Edition",
+          "has_text": true
+        },
+        {
+          "image_url": "https://example.com/logo.jpg",
+          "extracted_text": "No text found",
+          "has_text": false
+        },
+        {
+          "image_url": "https://example.com/promo.jpg",
+          "extracted_text": "50% OFF\nLimited Time Offer",
+          "has_text": true
+        }
+      ],
+      "total_images_processed": 3,
+      "images_with_text": 2
+    }
     
-    ...and so on for all images.
-    
-    If no IMAGES_FOR_PROCESSING section exists or no images contain text, return "No images to process" or "No text found in any images."
+    If no images are found in the IMAGES_FOR_PROCESSING section:
+    {
+      "extracted_texts": [],
+      "total_images_processed": 0,
+      "images_with_text": 0
+    }
   agent: image_text_extractor
 
 cleanup_email_content:
@@ -81,28 +133,63 @@ cleanup_email_content:
     - "This email and any attachments are confidential..."
     - "Follow us: [Facebook] [Twitter] [Instagram]" (only in footers)
     
-    Output the cleaned content for each email with:
-    - Email subject
-    - Sender
-    - Timestamp
-    - Cleaned message body (boilerplate removed)
-    - IMAGES_FOR_PROCESSING section (if present in the original email data)
+    STRUCTURED OUTPUT FORMAT:
+    You MUST return your response as a JSON object with the following structure:
+    {
+      "emails": [
+        {
+          "subject": "Email subject line",
+          "sender": "sender@example.com",
+          "timestamp": "2025-11-19T10:30:00Z",
+          "body": "Cleaned email body text with boilerplate removed",
+          "image_urls": ["https://example.com/image1.jpg", "https://example.com/image2.jpg"]
+        }
+      ],
+      "total_count": 5
+    }
+    
+    IMPORTANT JSON FORMATTING RULES:
+    - Use ISO 8601 format for timestamps (YYYY-MM-DDTHH:MM:SSZ)
+    - Include empty array [] for image_urls if no images are present
+    - Ensure all strings are properly escaped
+    - The body field should contain the cleaned message body text
+    - The total_count field should match the number of emails in the emails array
   expected_output: >
-    A structured list of emails with cleaned content:
-    - Subject line
-    - Sender email address
-    - Timestamp
-    - Message body with boilerplate content removed
-    - IMAGES_FOR_PROCESSING section with all image URLs (if present)
+    A JSON object containing a list of cleaned emails with the following structure:
     
-    CRITICAL: If the email data contains a section like:
-    ---
-    IMAGES_FOR_PROCESSING: 17
-    IMAGE_1: https://...
-    IMAGE_2: https://...
-    ...
+    {
+      "emails": [
+        {
+          "subject": "string - Email subject line",
+          "sender": "string - Sender email address",
+          "timestamp": "string - ISO 8601 datetime (e.g., 2025-11-19T10:30:00Z)",
+          "body": "string - Cleaned message body with boilerplate removed",
+          "image_urls": ["string array - List of image URLs found in the email"]
+        }
+      ],
+      "total_count": "integer - Total number of emails processed"
+    }
     
-    You MUST include this EXACT section in your output so the next task can process the images.
+    Example:
+    {
+      "emails": [
+        {
+          "subject": "Weekly Newsletter - November 2025",
+          "sender": "newsletter@example.com",
+          "timestamp": "2025-11-19T10:30:00Z",
+          "body": "Here are this week's top stories...",
+          "image_urls": ["https://example.com/banner.jpg"]
+        },
+        {
+          "subject": "Action Required: Update Your Profile",
+          "sender": "support@example.com",
+          "timestamp": "2025-11-18T14:20:00Z",
+          "body": "Please update your profile information by Friday...",
+          "image_urls": []
+        }
+      ],
+      "total_count": 2
+    }
     
     The output should contain only message-specific information without 
     footers, legal disclaimers, or repetitive organizational metadata.
@@ -127,12 +214,97 @@ analyze_emails:
     
     IMPORTANT: You MUST write your entire summary in {language} language. 
     All text, headings, and descriptions must be in {language}.
-  expected_output: >
-    A structured summary of emails in {language} language including:
-    - Total message count
-    - List of subjects with timestamps
-    - Key information and action items from each message (including image content if available)
-    - Overall priority assessment
     
-    The entire output must be written in {language} language.
+    STRUCTURED OUTPUT FORMAT:
+    You MUST return your response as a JSON object with the following structure:
+    {
+      "total_count": 5,
+      "email_summaries": [
+        {
+          "subject": "Email subject",
+          "sender": "sender@example.com",
+          "timestamp": "2025-11-19T10:30:00Z",
+          "key_points": ["Key point 1", "Key point 2"],
+          "action_items": ["Action item 1", "Action item 2"],
+          "has_deadline": true
+        }
+      ],
+      "action_items": ["All action items from all emails"],
+      "priority_assessment": "Overall priority assessment text",
+      "summary_text": "Full markdown-formatted summary for backward compatibility"
+    }
+    
+    IMPORTANT JSON FORMATTING RULES:
+    - total_count should match the number of emails analyzed
+    - email_summaries array should contain one entry per email
+    - Use ISO 8601 format for timestamps (YYYY-MM-DDTHH:MM:SSZ)
+    - key_points should be an array of strings, each representing a key point from that email
+    - action_items in each email_summary should contain action items specific to that email
+    - action_items at the root level should contain ALL action items from ALL emails
+    - has_deadline should be true if the email contains time-sensitive information
+    - priority_assessment should be a text assessment (e.g., "High", "Medium", "Low" with explanation)
+    - summary_text should contain the full markdown-formatted summary for backward compatibility
+    - All text content (key_points, action_items, priority_assessment, summary_text) MUST be in {language} language
+  expected_output: >
+    A JSON object containing structured email analysis with the following structure:
+    
+    {
+      "total_count": "integer - Total number of emails analyzed",
+      "email_summaries": [
+        {
+          "subject": "string - Email subject",
+          "sender": "string - Sender email address",
+          "timestamp": "string - ISO 8601 datetime (e.g., 2025-11-19T10:30:00Z)",
+          "key_points": ["string array - Key points from this email"],
+          "action_items": ["string array - Action items from this email"],
+          "has_deadline": "boolean - Whether email contains time-sensitive information"
+        }
+      ],
+      "action_items": ["string array - All action items from all emails combined"],
+      "priority_assessment": "string - Overall priority assessment",
+      "summary_text": "string - Full markdown-formatted summary"
+    }
+    
+    Example:
+    {
+      "total_count": 2,
+      "email_summaries": [
+        {
+          "subject": "Weekly Newsletter - November 2025",
+          "sender": "newsletter@example.com",
+          "timestamp": "2025-11-19T10:30:00Z",
+          "key_points": [
+            "New product launch announced for December",
+            "Q4 sales exceeded expectations by 15%"
+          ],
+          "action_items": [
+            "Review product specifications by Friday"
+          ],
+          "has_deadline": true
+        },
+        {
+          "subject": "Team Meeting Notes",
+          "sender": "manager@example.com",
+          "timestamp": "2025-11-18T14:20:00Z",
+          "key_points": [
+            "Project timeline updated",
+            "New team member joining next week"
+          ],
+          "action_items": [
+            "Prepare onboarding materials",
+            "Update project documentation"
+          ],
+          "has_deadline": false
+        }
+      ],
+      "action_items": [
+        "Review product specifications by Friday",
+        "Prepare onboarding materials",
+        "Update project documentation"
+      ],
+      "priority_assessment": "Medium priority - One deadline this week, other items can be scheduled flexibly",
+      "summary_text": "# Email Summary\n\n## Overview\nAnalyzed 2 emails...\n\n## Key Points\n- New product launch...\n\n## Action Items\n1. Review product specifications by Friday\n2. Prepare onboarding materials\n3. Update project documentation"
+    }
+    
+    The entire output, including all text fields, must be written in {language} language.
   agent: email_analyst

@@ -5,6 +5,8 @@ This directory contains example scripts demonstrating different approaches for w
 1. **Direct Tool Usage** (`gmail_reader_example.py`) - Using GmailReaderTool directly with agents
 2. **Crew Structure** (`gmail_crew_example.py`) - Using the structured GmailReaderCrew with YAML configs
 3. **Image Text Extraction** (`gmail_image_extraction_example.py`) - Analyzing emails with image text extraction enabled
+4. **Structured Output Access** (`structured_output_example.py`) - Accessing structured task outputs via Pydantic models
+5. **API Structured Output** (`api_structured_output_example.py`) - Accessing structured data via REST API
 
 ## Prerequisites
 
@@ -103,6 +105,55 @@ This demonstrates:
 - Set `IMAGE_PROCESSING_ENABLED=true` in your `.env` file
 - Configure optional settings like `IMAGE_ALLOWED_DOMAINS` for security
 - Ensure your OpenAI API key supports vision-capable models
+
+### Structured Output Example
+
+Demonstrates accessing structured task outputs via Pydantic models:
+
+```bash
+python examples/structured_output_example.py
+```
+
+This demonstrates:
+- Accessing structured data from Flow state
+- Type-safe field access via Pydantic models
+- Extracting specific information programmatically
+- Filtering urgent emails with deadlines
+- Monitoring token usage for cost tracking
+- Backward compatibility with raw markdown output
+
+**Key Features**:
+- Direct access to email summaries, action items, and priority assessments
+- Token usage statistics for cost monitoring
+- Programmatic filtering and processing of email data
+- Full type safety with Pydantic models
+
+### API Structured Output Example
+
+Demonstrates accessing structured data via the REST API:
+
+```bash
+# Start the API server first
+uvicorn api.main:app --reload
+
+# In another terminal, run the example
+python examples/api_structured_output_example.py
+```
+
+This demonstrates:
+- Executing analysis via REST API
+- Accessing structured data from API responses
+- Building metrics dashboards
+- Filtering urgent action items
+- Calculating API costs based on token usage
+- Processing historical analysis data
+
+**Key Features**:
+- Complete API integration examples
+- Dashboard generation from historical data
+- Cost calculation and monitoring
+- Urgent item extraction and filtering
+- Programmatic access to all structured fields
 
 **First Run**: The first time you run any example, it will open your browser for Gmail authentication. After authorizing, a `token.json` file will be created for future use.
 
@@ -450,8 +501,123 @@ If you hit Gmail API rate limits:
 - Wait a few minutes before trying again
 - Consider reducing the frequency of requests
 
+## Structured Output Access
+
+The Gmail Reader Crew returns structured, type-safe data using Pydantic models. This enables programmatic access to specific fields without parsing unstructured text.
+
+### Available Structured Data
+
+#### AnalysisTaskOutput
+
+The final analysis task returns a structured output with:
+
+- **`total_count`** (int): Total number of emails analyzed
+- **`email_summaries`** (list): Individual email summaries with:
+  - `subject`, `sender`, `timestamp`
+  - `key_points` (list of strings)
+  - `action_items` (list of strings)
+  - `has_deadline` (boolean)
+- **`action_items`** (list): All action items across all emails
+- **`priority_assessment`** (string): Overall priority assessment
+- **`summary_text`** (string): Full markdown summary
+
+#### TokenUsage
+
+Token usage statistics for cost monitoring:
+
+- **`total_tokens`** (int): Total tokens used
+- **`prompt_tokens`** (int): Tokens in prompts
+- **`completion_tokens`** (int): Tokens in completions
+
+### Accessing Structured Data in Python
+
+```python
+from briefler.flows.gmail_read_flow import GmailReadFlow
+
+# Execute flow
+flow = GmailReadFlow()
+flow.kickoff({
+    "crewai_trigger_payload": {
+        "sender_emails": ["user@example.com"],
+        "language": "en",
+        "days": 7
+    }
+})
+
+# Access structured result
+if flow.state.structured_result:
+    # Type-safe access
+    total = flow.state.structured_result.total_count
+    items = flow.state.structured_result.action_items
+    
+    # Filter urgent emails
+    urgent = [e for e in flow.state.structured_result.email_summaries 
+              if e.has_deadline]
+    
+    # Process each email
+    for email in flow.state.structured_result.email_summaries:
+        print(f"Subject: {email.subject}")
+        print(f"Key Points: {', '.join(email.key_points)}")
+
+# Access token usage
+if flow.state.total_token_usage:
+    print(f"Tokens used: {flow.state.total_token_usage.total_tokens}")
+```
+
+### Accessing Structured Data via API
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/api/flows/gmail-read",
+    json={
+        "sender_emails": ["user@example.com"],
+        "language": "en",
+        "days": 7
+    }
+)
+
+data = response.json()
+
+# Access structured data
+if data.get("structured_result"):
+    structured = data["structured_result"]
+    
+    # Extract information
+    total_emails = structured["total_count"]
+    all_actions = structured["action_items"]
+    priority = structured["priority_assessment"]
+    
+    # Process email summaries
+    for email in structured["email_summaries"]:
+        print(f"Subject: {email['subject']}")
+        if email["has_deadline"]:
+            print("⚠️ Time-sensitive!")
+
+# Monitor token usage
+if data.get("token_usage"):
+    usage = data["token_usage"]
+    print(f"Total tokens: {usage['total_tokens']}")
+    
+    # Calculate cost (example: GPT-4 pricing)
+    cost = (usage['prompt_tokens'] * 0.00003 + 
+            usage['completion_tokens'] * 0.00006)
+    print(f"Estimated cost: ${cost:.4f}")
+```
+
+### Backward Compatibility
+
+Structured outputs are optional additions that don't break existing code:
+
+- **`result` field**: Still contains full markdown text
+- **`flow.state.result`**: Still accessible
+- **Existing tests**: Continue to pass
+- **Graceful fallback**: If structured extraction fails, raw result is still available
+
 ## Additional Resources
 
 - [Gmail API Documentation](https://developers.google.com/gmail/api)
 - [CrewAI Documentation](https://docs.crewai.com/)
 - [OAuth 2.0 Setup Guide](https://developers.google.com/gmail/api/quickstart/python)
+- [Pydantic Documentation](https://docs.pydantic.dev/)

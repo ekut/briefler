@@ -45,7 +45,7 @@ class FlowService:
         logger.info("Flow service initialized")
     
     @staticmethod
-    def _execute_flow_sync(trigger_payload: dict) -> str:
+    def _execute_flow_sync(trigger_payload: dict) -> GmailReadFlow:
         """Execute CrewAI flow synchronously in a separate thread.
         
         This method runs in a thread pool to avoid conflicts with FastAPI's
@@ -55,11 +55,11 @@ class FlowService:
             trigger_payload: Flow input parameters
             
         Returns:
-            Analysis result text from flow execution
+            The flow instance with populated state after execution
         """
         flow = GmailReadFlow()
         flow.kickoff(inputs={"crewai_trigger_payload": trigger_payload})
-        return flow.state.result
+        return flow
     
     async def execute_flow(
         self,
@@ -106,7 +106,7 @@ class FlowService:
             
             # Execute flow in thread pool to avoid event loop conflicts
             # CrewAI uses asyncio.run() internally which conflicts with FastAPI's event loop
-            result_text = await asyncio.get_event_loop().run_in_executor(
+            flow = await asyncio.get_event_loop().run_in_executor(
                 _executor,
                 self._execute_flow_sync,
                 trigger_payload
@@ -120,13 +120,64 @@ class FlowService:
                 f"{execution_time:.2f} seconds"
             )
             
+            # Prepare response data dictionary
+            response_data = {
+                "analysis_id": analysis_id,
+                "result": flow.state.result,
+                "parameters": trigger_payload,
+                "execution_time_seconds": round(execution_time, 2)
+            }
+            
+            # Add structured_result if available
+            if flow.state.structured_result:
+                try:
+                    # Use mode='json' to properly serialize datetime objects
+                    response_data["structured_result"] = flow.state.structured_result.model_dump(mode='json')
+                    logger.debug("Successfully serialized structured_result")
+                except TypeError as e:
+                    logger.warning(
+                        f"Type error serializing structured_result for analysis {analysis_id}: {e}. "
+                        f"Model type: {type(flow.state.structured_result).__name__}",
+                        exc_info=False
+                    )
+                except AttributeError as e:
+                    logger.warning(
+                        f"Attribute error serializing structured_result for analysis {analysis_id}: {e}. "
+                        f"Object may not be a Pydantic model",
+                        exc_info=False
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unexpected error serializing structured_result for analysis {analysis_id}: {e}",
+                        exc_info=True
+                    )
+            
+            # Add token_usage if available
+            if flow.state.total_token_usage:
+                try:
+                    # Use mode='json' for consistency
+                    response_data["token_usage"] = flow.state.total_token_usage.model_dump(mode='json')
+                    logger.debug("Successfully serialized token_usage")
+                except TypeError as e:
+                    logger.warning(
+                        f"Type error serializing token_usage for analysis {analysis_id}: {e}. "
+                        f"Model type: {type(flow.state.total_token_usage).__name__}",
+                        exc_info=False
+                    )
+                except AttributeError as e:
+                    logger.warning(
+                        f"Attribute error serializing token_usage for analysis {analysis_id}: {e}. "
+                        f"Object may not be a Pydantic model",
+                        exc_info=False
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Unexpected error serializing token_usage for analysis {analysis_id}: {e}",
+                        exc_info=True
+                    )
+            
             # Create response object
-            response = GmailAnalysisResponse(
-                analysis_id=analysis_id,
-                result=result_text,
-                parameters=trigger_payload,
-                execution_time_seconds=round(execution_time, 2)
-            )
+            response = GmailAnalysisResponse(**response_data)
             
             # Save to history
             await self.history_service.save(response)
@@ -186,14 +237,56 @@ class FlowService:
             # Execute flow
             result = await self.execute_flow(request)
             
-            # Send completion event with full result
-            result_json = json.dumps({
+            # Prepare completion data
+            completion_data = {
                 "analysis_id": result.analysis_id,
                 "result": result.result,
                 "parameters": result.parameters,
                 "timestamp": result.timestamp.isoformat(),
                 "execution_time_seconds": result.execution_time_seconds
-            })
+            }
+            
+            # Add structured_result if available
+            if result.structured_result:
+                try:
+                    completion_data["structured_result"] = result.structured_result
+                except Exception as e:
+                    logger.warning(
+                        f"Could not include structured_result in streaming response "
+                        f"for analysis {result.analysis_id}: {e}",
+                        exc_info=False
+                    )
+            
+            # Add token_usage if available
+            if result.token_usage:
+                try:
+                    completion_data["token_usage"] = result.token_usage
+                except Exception as e:
+                    logger.warning(
+                        f"Could not include token_usage in streaming response "
+                        f"for analysis {result.analysis_id}: {e}",
+                        exc_info=False
+                    )
+            
+            # Send completion event with full result
+            try:
+                result_json = json.dumps(completion_data)
+            except TypeError as e:
+                logger.error(
+                    f"JSON serialization error for streaming response "
+                    f"for analysis {result.analysis_id}: {e}. "
+                    f"Falling back to minimal response",
+                    exc_info=True
+                )
+                # Fallback to minimal response without structured data
+                minimal_data = {
+                    "analysis_id": result.analysis_id,
+                    "result": result.result,
+                    "parameters": result.parameters,
+                    "timestamp": result.timestamp.isoformat(),
+                    "execution_time_seconds": result.execution_time_seconds
+                }
+                result_json = json.dumps(minimal_data)
             
             yield f"event: complete\ndata: {result_json}\n\n"
             

@@ -349,3 +349,339 @@ class TestGmailReaderCrewTaskDescriptions:
         
         # Verify key instructions are present
         assert "analyz" in description or "summary" in description or "insight" in description
+
+
+class TestGmailReaderCrewStructuredOutputs:
+    """Test structured outputs from crew execution.
+    
+    Requirements: 8.1, 8.2, 8.4
+    """
+    
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._initialize_gmail_service')
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._get_unread_messages')
+    @patch('crewai.Crew.kickoff')
+    def test_crew_returns_structured_output(self, mock_kickoff, mock_get_messages, mock_init_service):
+        """Test that crew execution returns structured output.
+        
+        Validates: Requirements 8.1 - Verify task outputs conform to Pydantic models
+        """
+        from datetime import datetime
+        from briefler.models.task_outputs import AnalysisTaskOutput, EmailSummary
+        
+        # Mock Gmail service
+        mock_service = MagicMock()
+        mock_init_service.return_value = mock_service
+        mock_get_messages.return_value = []
+        
+        # Create mock structured result
+        mock_analysis_output = AnalysisTaskOutput(
+            total_count=2,
+            email_summaries=[
+                EmailSummary(
+                    subject="Test Email 1",
+                    sender="sender1@example.com",
+                    timestamp=datetime(2025, 11, 19, 10, 0, 0),
+                    key_points=["Point 1", "Point 2"],
+                    action_items=["Action 1"],
+                    has_deadline=True
+                ),
+                EmailSummary(
+                    subject="Test Email 2",
+                    sender="sender2@example.com",
+                    timestamp=datetime(2025, 11, 19, 11, 0, 0),
+                    key_points=["Point 3"],
+                    action_items=[],
+                    has_deadline=False
+                )
+            ],
+            action_items=["Action 1"],
+            priority_assessment="High",
+            summary_text="# Email Analysis\n\nTest summary"
+        )
+        
+        # Create mock result object with pydantic attribute
+        mock_result = MagicMock()
+        mock_result.pydantic = mock_analysis_output
+        mock_result.raw = "# Email Analysis\n\nTest summary"
+        mock_kickoff.return_value = mock_result
+        
+        # Execute crew
+        with patch.dict('os.environ', {'IMAGE_PROCESSING_ENABLED': 'false'}):
+            crew_instance = GmailReaderCrew()
+            crew = crew_instance.crew()
+            result = crew.kickoff(inputs={
+                'sender_emails': ['test@example.com'],
+                'language': 'en',
+                'days': 7
+            })
+        
+        # Verify structured output is available
+        assert hasattr(result, 'pydantic'), "Result should have pydantic attribute"
+        assert result.pydantic is not None, "Result.pydantic should not be None"
+    
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._initialize_gmail_service')
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._get_unread_messages')
+    @patch('crewai.Crew.kickoff')
+    def test_result_pydantic_is_analysis_task_output_instance(self, mock_kickoff, mock_get_messages, mock_init_service):
+        """Test that result.pydantic is an AnalysisTaskOutput instance.
+        
+        Validates: Requirements 8.1, 8.2 - Verify structured data access patterns
+        """
+        from datetime import datetime
+        from briefler.models.task_outputs import AnalysisTaskOutput, EmailSummary
+        
+        # Mock Gmail service
+        mock_service = MagicMock()
+        mock_init_service.return_value = mock_service
+        mock_get_messages.return_value = []
+        
+        # Create mock structured result
+        mock_analysis_output = AnalysisTaskOutput(
+            total_count=1,
+            email_summaries=[
+                EmailSummary(
+                    subject="Test Email",
+                    sender="sender@example.com",
+                    timestamp=datetime(2025, 11, 19, 10, 0, 0),
+                    key_points=["Point 1"],
+                    action_items=["Action 1"],
+                    has_deadline=False
+                )
+            ],
+            action_items=["Action 1"],
+            priority_assessment="Medium",
+            summary_text="# Email Analysis\n\nTest summary"
+        )
+        
+        # Create mock result object
+        mock_result = MagicMock()
+        mock_result.pydantic = mock_analysis_output
+        mock_result.raw = "# Email Analysis\n\nTest summary"
+        mock_kickoff.return_value = mock_result
+        
+        # Execute crew
+        with patch.dict('os.environ', {'IMAGE_PROCESSING_ENABLED': 'false'}):
+            crew_instance = GmailReaderCrew()
+            crew = crew_instance.crew()
+            result = crew.kickoff(inputs={
+                'sender_emails': ['test@example.com'],
+                'language': 'en',
+                'days': 7
+            })
+        
+        # Verify result.pydantic is AnalysisTaskOutput instance
+        assert isinstance(result.pydantic, AnalysisTaskOutput), \
+            f"Expected AnalysisTaskOutput, got {type(result.pydantic)}"
+    
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._initialize_gmail_service')
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._get_unread_messages')
+    @patch('crewai.Crew.kickoff')
+    def test_structured_fields_are_accessible(self, mock_kickoff, mock_get_messages, mock_init_service):
+        """Test that structured fields are accessible via attribute access.
+        
+        Validates: Requirements 8.1, 8.2 - Verify structured fields are accessible
+        """
+        from datetime import datetime
+        from briefler.models.task_outputs import AnalysisTaskOutput, EmailSummary
+        
+        # Mock Gmail service
+        mock_service = MagicMock()
+        mock_init_service.return_value = mock_service
+        mock_get_messages.return_value = []
+        
+        # Create mock structured result with specific data
+        mock_analysis_output = AnalysisTaskOutput(
+            total_count=3,
+            email_summaries=[
+                EmailSummary(
+                    subject="Email 1",
+                    sender="sender1@example.com",
+                    timestamp=datetime(2025, 11, 19, 10, 0, 0),
+                    key_points=["Key point 1"],
+                    action_items=["Action 1"],
+                    has_deadline=True
+                ),
+                EmailSummary(
+                    subject="Email 2",
+                    sender="sender2@example.com",
+                    timestamp=datetime(2025, 11, 19, 11, 0, 0),
+                    key_points=["Key point 2"],
+                    action_items=["Action 2"],
+                    has_deadline=False
+                ),
+                EmailSummary(
+                    subject="Email 3",
+                    sender="sender3@example.com",
+                    timestamp=datetime(2025, 11, 19, 12, 0, 0),
+                    key_points=["Key point 3"],
+                    action_items=[],
+                    has_deadline=False
+                )
+            ],
+            action_items=["Action 1", "Action 2"],
+            priority_assessment="High",
+            summary_text="# Email Analysis\n\nDetailed summary"
+        )
+        
+        # Create mock result object
+        mock_result = MagicMock()
+        mock_result.pydantic = mock_analysis_output
+        mock_result.raw = "# Email Analysis\n\nDetailed summary"
+        mock_kickoff.return_value = mock_result
+        
+        # Execute crew
+        with patch.dict('os.environ', {'IMAGE_PROCESSING_ENABLED': 'false'}):
+            crew_instance = GmailReaderCrew()
+            crew = crew_instance.crew()
+            result = crew.kickoff(inputs={
+                'sender_emails': ['test@example.com'],
+                'language': 'en',
+                'days': 7
+            })
+        
+        # Verify all structured fields are accessible
+        assert result.pydantic.total_count == 3, "total_count should be accessible"
+        assert len(result.pydantic.email_summaries) == 3, "email_summaries should be accessible"
+        assert len(result.pydantic.action_items) == 2, "action_items should be accessible"
+        assert result.pydantic.priority_assessment == "High", "priority_assessment should be accessible"
+        assert result.pydantic.summary_text == "# Email Analysis\n\nDetailed summary", \
+            "summary_text should be accessible"
+        
+        # Verify nested fields are accessible
+        first_email = result.pydantic.email_summaries[0]
+        assert first_email.subject == "Email 1", "Nested subject should be accessible"
+        assert first_email.sender == "sender1@example.com", "Nested sender should be accessible"
+        assert first_email.has_deadline is True, "Nested has_deadline should be accessible"
+        assert len(first_email.key_points) == 1, "Nested key_points should be accessible"
+        assert len(first_email.action_items) == 1, "Nested action_items should be accessible"
+    
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._initialize_gmail_service')
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._get_unread_messages')
+    @patch('crewai.Crew.kickoff')
+    def test_dictionary_style_access_to_result_fields(self, mock_kickoff, mock_get_messages, mock_init_service):
+        """Test that result fields can be accessed via dictionary-style indexing.
+        
+        Validates: Requirements 8.2 - Verify dictionary-style access to result fields
+        """
+        from datetime import datetime
+        from briefler.models.task_outputs import AnalysisTaskOutput, EmailSummary
+        
+        # Mock Gmail service
+        mock_service = MagicMock()
+        mock_init_service.return_value = mock_service
+        mock_get_messages.return_value = []
+        
+        # Create mock structured result
+        mock_analysis_output = AnalysisTaskOutput(
+            total_count=1,
+            email_summaries=[
+                EmailSummary(
+                    subject="Test Email",
+                    sender="sender@example.com",
+                    timestamp=datetime(2025, 11, 19, 10, 0, 0),
+                    key_points=["Point 1"],
+                    action_items=["Action 1"],
+                    has_deadline=False
+                )
+            ],
+            action_items=["Action 1"],
+            priority_assessment="Low",
+            summary_text="# Email Analysis\n\nTest summary"
+        )
+        
+        # Create mock result object
+        mock_result = MagicMock()
+        mock_result.pydantic = mock_analysis_output
+        mock_result.raw = "# Email Analysis\n\nTest summary"
+        mock_kickoff.return_value = mock_result
+        
+        # Execute crew
+        with patch.dict('os.environ', {'IMAGE_PROCESSING_ENABLED': 'false'}):
+            crew_instance = GmailReaderCrew()
+            crew = crew_instance.crew()
+            result = crew.kickoff(inputs={
+                'sender_emails': ['test@example.com'],
+                'language': 'en',
+                'days': 7
+            })
+        
+        # Convert to dictionary for dictionary-style access
+        result_dict = result.pydantic.model_dump()
+        
+        # Verify dictionary-style access works
+        assert result_dict['total_count'] == 1, "Should access total_count via dict"
+        assert len(result_dict['email_summaries']) == 1, "Should access email_summaries via dict"
+        assert result_dict['priority_assessment'] == "Low", "Should access priority_assessment via dict"
+        assert len(result_dict['action_items']) == 1, "Should access action_items via dict"
+        
+        # Verify nested dictionary access
+        first_email = result_dict['email_summaries'][0]
+        assert first_email['subject'] == "Test Email", "Should access nested subject via dict"
+        assert first_email['sender'] == "sender@example.com", "Should access nested sender via dict"
+    
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._initialize_gmail_service')
+    @patch('briefler.tools.gmail_reader_tool.GmailReaderTool._get_unread_messages')
+    @patch('crewai.Crew.kickoff')
+    def test_backward_compatibility_with_result_raw(self, mock_kickoff, mock_get_messages, mock_init_service):
+        """Test that result.raw is still available for backward compatibility.
+        
+        Validates: Requirements 8.4 - Verify backward compatibility with raw output access
+        """
+        from datetime import datetime
+        from briefler.models.task_outputs import AnalysisTaskOutput, EmailSummary
+        
+        # Mock Gmail service
+        mock_service = MagicMock()
+        mock_init_service.return_value = mock_service
+        mock_get_messages.return_value = []
+        
+        # Create mock structured result
+        mock_analysis_output = AnalysisTaskOutput(
+            total_count=1,
+            email_summaries=[
+                EmailSummary(
+                    subject="Test Email",
+                    sender="sender@example.com",
+                    timestamp=datetime(2025, 11, 19, 10, 0, 0),
+                    key_points=["Point 1"],
+                    action_items=["Action 1"],
+                    has_deadline=False
+                )
+            ],
+            action_items=["Action 1"],
+            priority_assessment="Medium",
+            summary_text="# Email Analysis\n\nTest summary for backward compatibility"
+        )
+        
+        # Create mock result object with both pydantic and raw
+        mock_result = MagicMock()
+        mock_result.pydantic = mock_analysis_output
+        mock_result.raw = "# Email Analysis\n\nTest summary for backward compatibility"
+        mock_kickoff.return_value = mock_result
+        
+        # Execute crew
+        with patch.dict('os.environ', {'IMAGE_PROCESSING_ENABLED': 'false'}):
+            crew_instance = GmailReaderCrew()
+            crew = crew_instance.crew()
+            result = crew.kickoff(inputs={
+                'sender_emails': ['test@example.com'],
+                'language': 'en',
+                'days': 7
+            })
+        
+        # Verify both structured and raw outputs are available
+        assert hasattr(result, 'raw'), "Result should have raw attribute for backward compatibility"
+        assert hasattr(result, 'pydantic'), "Result should have pydantic attribute for structured access"
+        
+        # Verify raw output is a string
+        assert isinstance(result.raw, str), "result.raw should be a string"
+        assert len(result.raw) > 0, "result.raw should not be empty"
+        assert "Email Analysis" in result.raw, "result.raw should contain expected content"
+        
+        # Verify structured output is also available
+        assert isinstance(result.pydantic, AnalysisTaskOutput), \
+            "result.pydantic should be AnalysisTaskOutput instance"
+        
+        # Verify both contain consistent information
+        assert result.pydantic.summary_text in result.raw or result.raw in result.pydantic.summary_text, \
+            "Raw and structured outputs should contain consistent information"

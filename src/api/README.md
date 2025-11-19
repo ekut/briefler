@@ -91,6 +91,27 @@ Execute Gmail analysis flow synchronously.
 {
   "analysis_id": "550e8400-e29b-41d4-a716-446655440000",
   "result": "# Email Analysis\n\n## Summary\n...",
+  "structured_result": {
+    "total_count": 5,
+    "email_summaries": [
+      {
+        "subject": "Project Update",
+        "sender": "manager@company.com",
+        "timestamp": "2025-11-19T14:00:00Z",
+        "key_points": ["Q4 deadline moved to December 15", "New team member joining"],
+        "action_items": ["Update project timeline", "Prepare onboarding materials"],
+        "has_deadline": true
+      }
+    ],
+    "action_items": ["Update project timeline", "Prepare onboarding materials", "Review budget"],
+    "priority_assessment": "High - Multiple time-sensitive items require immediate attention",
+    "summary_text": "# Email Analysis\n\n## Summary\n..."
+  },
+  "token_usage": {
+    "total_tokens": 4200,
+    "prompt_tokens": 3050,
+    "completion_tokens": 1150
+  },
   "parameters": {
     "sender_emails": ["user@example.com"],
     "language": "en",
@@ -203,6 +224,18 @@ Retrieve specific analysis by ID.
 {
   "analysis_id": "550e8400-e29b-41d4-a716-446655440000",
   "result": "# Email Analysis\n\n## Summary\n...",
+  "structured_result": {
+    "total_count": 5,
+    "email_summaries": [...],
+    "action_items": [...],
+    "priority_assessment": "High",
+    "summary_text": "..."
+  },
+  "token_usage": {
+    "total_tokens": 4200,
+    "prompt_tokens": 3050,
+    "completion_tokens": 1150
+  },
   "parameters": {
     "sender_emails": ["user@example.com"],
     "language": "en",
@@ -294,6 +327,220 @@ curl http://localhost:8000/ready
 | `HISTORY_MAX_FILES` | No | `100` | Maximum number of history files to retain |
 | `ENVIRONMENT` | No | `development` | Environment mode (`development` or `production`) |
 
+## Structured Output Format
+
+The API returns structured, type-safe data in addition to the markdown-formatted `result` field. This enables programmatic access to specific information without parsing unstructured text.
+
+### Response Fields
+
+#### `structured_result` (object, optional)
+
+Contains the structured analysis output with the following fields:
+
+- **`total_count`** (integer): Total number of emails analyzed
+- **`email_summaries`** (array): List of individual email summaries
+  - **`subject`** (string): Email subject line
+  - **`sender`** (string): Sender email address
+  - **`timestamp`** (string): Email timestamp in ISO 8601 format
+  - **`key_points`** (array of strings): Key points extracted from the email
+  - **`action_items`** (array of strings): Action items identified in this specific email
+  - **`has_deadline`** (boolean): Whether the email contains time-sensitive information
+- **`action_items`** (array of strings): All action items across all emails
+- **`priority_assessment`** (string): Overall priority assessment of the email batch
+- **`summary_text`** (string): Full markdown-formatted summary (same as `result` field)
+
+#### `token_usage` (object, optional)
+
+Contains token usage statistics for cost monitoring:
+
+- **`total_tokens`** (integer): Total tokens used (prompt + completion)
+- **`prompt_tokens`** (integer): Number of tokens in the prompt
+- **`completion_tokens`** (integer): Number of tokens in the completion
+
+**Use Cases:**
+- Monitor LLM API costs per analysis
+- Identify workflows with high token consumption
+- Optimize prompts based on usage patterns
+- Track token usage trends over time
+- Calculate approximate API costs
+
+#### `result` (string)
+
+Markdown-formatted analysis text. Maintained for backward compatibility. Contains the same information as `structured_result.summary_text`.
+
+### Example: Accessing Structured Data
+
+```python
+import requests
+
+# Execute analysis
+response = requests.post(
+    "http://localhost:8000/api/flows/gmail-read",
+    json={
+        "sender_emails": ["user@example.com"],
+        "language": "en",
+        "days": 7
+    }
+)
+
+data = response.json()
+
+# Access structured data
+if "structured_result" in data and data["structured_result"]:
+    structured = data["structured_result"]
+    
+    # Extract specific information
+    total_emails = structured["total_count"]
+    all_action_items = structured["action_items"]
+    priority = structured["priority_assessment"]
+    
+    print(f"Analyzed {total_emails} emails")
+    print(f"Priority: {priority}")
+    print(f"\nAll Action Items:")
+    for item in all_action_items:
+        print(f"  ✓ {item}")
+    
+    # Process individual email summaries
+    for email in structured["email_summaries"]:
+        print(f"\n📧 {email['subject']}")
+        print(f"From: {email['sender']}")
+        print(f"Date: {email['timestamp']}")
+        
+        if email["key_points"]:
+            print("\nKey Points:")
+            for point in email["key_points"]:
+                print(f"  • {point}")
+        
+        if email["has_deadline"]:
+            print("⚠️ Time-sensitive!")
+
+# Monitor token usage and calculate costs
+if "token_usage" in data and data["token_usage"]:
+    usage = data["token_usage"]
+    print(f"\n💰 Token Usage:")
+    print(f"  Total: {usage['total_tokens']}")
+    print(f"  Prompt: {usage['prompt_tokens']}")
+    print(f"  Completion: {usage['completion_tokens']}")
+    
+    # Calculate approximate cost (example: GPT-4 pricing)
+    prompt_cost = usage['prompt_tokens'] * 0.00003  # $0.03 per 1K tokens
+    completion_cost = usage['completion_tokens'] * 0.00006  # $0.06 per 1K tokens
+    total_cost = prompt_cost + completion_cost
+    print(f"  Estimated cost: ${total_cost:.4f}")
+```
+
+### Example: Building a Dashboard
+
+```python
+import requests
+from datetime import datetime
+
+def get_analysis_metrics(analysis_id):
+    """Extract key metrics from an analysis."""
+    response = requests.get(f"http://localhost:8000/api/history/{analysis_id}")
+    data = response.json()
+    
+    if not data.get("structured_result"):
+        return None
+    
+    structured = data["structured_result"]
+    token_usage = data.get("token_usage", {})
+    
+    return {
+        "analysis_id": data["analysis_id"],
+        "timestamp": data["timestamp"],
+        "total_emails": structured["total_count"],
+        "total_action_items": len(structured["action_items"]),
+        "urgent_emails": sum(1 for e in structured["email_summaries"] if e["has_deadline"]),
+        "priority": structured["priority_assessment"],
+        "tokens_used": token_usage.get("total_tokens", 0),
+        "execution_time": data["execution_time_seconds"]
+    }
+
+# Get recent analyses
+history = requests.get("http://localhost:8000/api/history?limit=10").json()
+
+# Build metrics dashboard
+print("📊 Analysis Dashboard\n")
+print(f"{'Date':<20} {'Emails':<8} {'Actions':<8} {'Urgent':<8} {'Tokens':<10} {'Time':<8}")
+print("-" * 70)
+
+for item in history["items"]:
+    metrics = get_analysis_metrics(item["analysis_id"])
+    if metrics:
+        date = datetime.fromisoformat(metrics["timestamp"].replace("Z", "+00:00"))
+        print(f"{date.strftime('%Y-%m-%d %H:%M'):<20} "
+              f"{metrics['total_emails']:<8} "
+              f"{metrics['total_action_items']:<8} "
+              f"{metrics['urgent_emails']:<8} "
+              f"{metrics['tokens_used']:<10} "
+              f"{metrics['execution_time']:.1f}s")
+```
+
+### Example: Filtering High-Priority Emails
+
+```python
+import requests
+
+def get_urgent_action_items(sender_emails, days=7):
+    """Get all urgent action items from recent emails."""
+    response = requests.post(
+        "http://localhost:8000/api/flows/gmail-read",
+        json={
+            "sender_emails": sender_emails,
+            "language": "en",
+            "days": days
+        }
+    )
+    
+    data = response.json()
+    structured = data.get("structured_result")
+    
+    if not structured:
+        return []
+    
+    # Extract action items from emails with deadlines
+    urgent_items = []
+    for email in structured["email_summaries"]:
+        if email["has_deadline"] and email["action_items"]:
+            for item in email["action_items"]:
+                urgent_items.append({
+                    "item": item,
+                    "from_email": email["subject"],
+                    "sender": email["sender"],
+                    "date": email["timestamp"]
+                })
+    
+    return urgent_items
+
+# Get urgent items
+urgent = get_urgent_action_items(["manager@company.com", "client@example.com"])
+
+print("⚠️ Urgent Action Items:\n")
+for item in urgent:
+    print(f"• {item['item']}")
+    print(f"  From: {item['from_email']} ({item['sender']})")
+    print(f"  Date: {item['date']}\n")
+```
+
+### Backward Compatibility
+
+The structured output fields are optional additions that don't break existing integrations:
+
+- **`result` field**: Still contains the full markdown-formatted analysis text
+- **Existing API consumers**: Can continue using the `result` field without changes
+- **Graceful degradation**: If structured output extraction fails, `structured_result` will be `null` but `result` will still be populated
+
+### Error Handling
+
+If structured output extraction fails (e.g., validation errors), the API will:
+1. Still return HTTP 200 OK
+2. Populate the `result` field with markdown text
+3. Set `structured_result` to `null`
+4. Log the error for debugging
+
+This ensures the API never fails due to structured output issues.
+
 ## Supported Language Codes
 
 The API supports the following ISO 639-1 language codes for the `language` parameter:
@@ -367,6 +614,18 @@ response = requests.post(
 result = response.json()
 print(f"Analysis ID: {result['analysis_id']}")
 print(f"Result: {result['result']}")
+
+# Access structured data
+if result.get("structured_result"):
+    structured = result["structured_result"]
+    print(f"\nTotal emails: {structured['total_count']}")
+    print(f"Action items: {len(structured['action_items'])}")
+    print(f"Priority: {structured['priority_assessment']}")
+
+# Check token usage
+if result.get("token_usage"):
+    usage = result["token_usage"]
+    print(f"\nTokens used: {usage['total_tokens']}")
 
 # Get history
 history = requests.get("http://localhost:8000/api/history").json()

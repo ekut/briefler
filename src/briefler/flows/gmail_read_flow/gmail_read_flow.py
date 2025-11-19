@@ -1,10 +1,15 @@
 """Gmail Read Flow implementation with enhanced input parameters."""
 
-from pydantic import BaseModel, Field, field_validator
-from typing import List
+from pydantic import BaseModel, Field, field_validator, ValidationError
+from typing import List, Optional
 import re
+import logging
 from crewai.flow.flow import Flow, listen, start
 from briefler.crews.gmail_reader_crew import GmailReaderCrew
+from briefler.models.task_outputs import AnalysisTaskOutput, TokenUsage
+
+# Configure logger for this module
+logger = logging.getLogger(__name__)
 
 
 class FlowState(BaseModel):
@@ -29,6 +34,14 @@ class FlowState(BaseModel):
     result: str = Field(
         default="",
         description="Crew execution result"
+    )
+    structured_result: Optional[AnalysisTaskOutput] = Field(
+        default=None,
+        description="Structured analysis result with typed fields"
+    )
+    total_token_usage: Optional[TokenUsage] = Field(
+        default=None,
+        description="Aggregated token usage across all tasks"
     )
     
     @field_validator('sender_emails')
@@ -124,6 +137,11 @@ class GmailReadFlow(Flow[FlowState]):
     and time-based filtering.
     """
     
+    def __init__(self, *args, **kwargs):
+        """Initialize flow with validation failure tracking."""
+        super().__init__(*args, **kwargs)
+        self._validation_failure_count = 0
+    
     @start()
     def initialize(self, crewai_trigger_payload: dict = None):
         """Entry point of the flow with parameter handling.
@@ -181,5 +199,114 @@ class GmailReadFlow(Flow[FlowState]):
         # Instantiate GmailReaderCrew and call crew().kickoff(inputs=crew_inputs)
         result = GmailReaderCrew().crew().kickoff(inputs=crew_inputs)
         
-        # Store result.raw in self.state.result
+        # Store result.raw in self.state.result for backward compatibility
         self.state.result = result.raw
+        
+        # Extract structured result if available
+        try:
+            # Try to extract result.pydantic first (primary method)
+            if hasattr(result, 'pydantic') and result.pydantic:
+                self.state.structured_result = result.pydantic
+                logger.info("Successfully extracted structured result from result.pydantic")
+                print("Successfully extracted structured result from result.pydantic")
+            # Fallback to parsing result.json_dict if pydantic not available
+            elif hasattr(result, 'json_dict') and result.json_dict:
+                self.state.structured_result = AnalysisTaskOutput(**result.json_dict)
+                logger.info("Successfully parsed structured result from result.json_dict")
+                print("Successfully parsed structured result from result.json_dict")
+            else:
+                logger.warning("No structured result available (neither pydantic nor json_dict)")
+                print("Warning: No structured result available (neither pydantic nor json_dict)")
+        except ValidationError as e:
+            # Handle Pydantic validation errors specifically
+            self._validation_failure_count += 1
+            
+            # Log validation error with field details (sanitized)
+            error_details = []
+            for error in e.errors():
+                field_path = '.'.join(str(loc) for loc in error['loc'])
+                error_type = error['type']
+                error_msg = error['msg']
+                error_details.append(f"{field_path}: {error_type} - {error_msg}")
+            
+            logger.error(
+                f"Pydantic validation error extracting structured result: "
+                f"{len(e.errors())} validation error(s) occurred",
+                extra={'validation_errors': error_details}
+            )
+            print(f"Warning: Validation error extracting structured result - {len(e.errors())} field error(s)")
+            
+            # Check for repeated validation failures
+            if self._validation_failure_count >= 3:
+                logger.warning(
+                    f"Repeated validation failures detected ({self._validation_failure_count} times). "
+                    "This may indicate a schema mismatch between task output and expected model."
+                )
+            
+            # Fall back to raw result only
+            logger.info("Falling back to raw result only due to validation error")
+            print("Falling back to raw result only")
+            
+            # Ensure flow continues execution - structured_result remains None
+        except Exception as e:
+            # Handle other unexpected errors
+            logger.error(
+                f"Unexpected error extracting structured result: {type(e).__name__}: {str(e)}",
+                exc_info=True
+            )
+            print(f"Warning: Could not extract structured result: {e}")
+            print("Falling back to raw result only")
+        
+        # Aggregate token usage from crew execution
+        self._aggregate_token_usage(result)
+    
+    def _aggregate_token_usage(self, crew_result):
+        """Aggregate token usage from crew execution.
+        
+        CrewAI provides usage_metrics at the crew level after kickoff,
+        which aggregates token usage across all tasks automatically.
+        
+        Args:
+            crew_result: The result object returned from crew.kickoff()
+        """
+        try:
+            usage_metrics = None
+            
+            # Try to extract token usage from crew_result.token_usage first
+            if hasattr(crew_result, 'token_usage') and crew_result.token_usage:
+                usage_metrics = crew_result.token_usage
+                print("Extracted token usage from crew_result.token_usage")
+            # Try to access usage_metrics from the crew instance
+            elif hasattr(crew_result, 'usage_metrics') and crew_result.usage_metrics:
+                usage_metrics = crew_result.usage_metrics
+                print("Extracted token usage from crew_result.usage_metrics")
+            else:
+                print("Warning: No usage_metrics available from crew result")
+                return
+            
+            # Extract token values from usage_metrics object
+            # UsageMetrics can be either a dict or an object with attributes
+            if isinstance(usage_metrics, dict):
+                # Handle dictionary format (for backward compatibility)
+                total_tokens = usage_metrics.get('total_tokens', 0)
+                prompt_tokens = usage_metrics.get('prompt_tokens', 0)
+                completion_tokens = usage_metrics.get('completion_tokens', 0)
+            else:
+                # Handle object format (CrewAI UsageMetrics object)
+                total_tokens = getattr(usage_metrics, 'total_tokens', 0)
+                prompt_tokens = getattr(usage_metrics, 'prompt_tokens', 0)
+                completion_tokens = getattr(usage_metrics, 'completion_tokens', 0)
+            
+            # Create TokenUsage instance from extracted values
+            self.state.total_token_usage = TokenUsage(
+                total_tokens=total_tokens,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens
+            )
+            
+            # Log token usage with prompt and completion breakdown
+            print(f"Total token usage: {self.state.total_token_usage.total_tokens} tokens "
+                  f"(prompt: {self.state.total_token_usage.prompt_tokens}, "
+                  f"completion: {self.state.total_token_usage.completion_tokens})")
+        except Exception as e:
+            print(f"Warning: Could not extract token usage: {e}")

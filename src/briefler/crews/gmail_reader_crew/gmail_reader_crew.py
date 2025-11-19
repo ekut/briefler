@@ -5,6 +5,11 @@ from crewai.agents.agent_builder.base_agent import BaseAgent
 from crewai.project import CrewBase, agent, crew, task
 from crewai_tools import VisionTool
 
+from briefler.models.task_outputs import (
+    AnalysisTaskOutput,
+    CleanupTaskOutput,
+    VisionTaskOutput,
+)
 from briefler.tools.gmail_reader_tool import GmailReaderTool
 
 
@@ -40,6 +45,7 @@ class GmailReaderCrew:
         """Task to extract text from images in emails"""
         return Task(
             config=self.tasks_config["extract_text_from_images"],  # type: ignore[index]
+            output_pydantic=VisionTaskOutput,
         )
 
     @task
@@ -47,6 +53,7 @@ class GmailReaderCrew:
         """Task to clean email content by removing boilerplate"""
         return Task(
             config=self.tasks_config["cleanup_email_content"],  # type: ignore[index]
+            output_pydantic=CleanupTaskOutput,
         )
 
     @task
@@ -54,6 +61,7 @@ class GmailReaderCrew:
         """Task to analyze cleaned email content and generate summary"""
         return Task(
             config=self.tasks_config["analyze_emails"],  # type: ignore[index]
+            output_pydantic=AnalysisTaskOutput,
         )
 
     @crew

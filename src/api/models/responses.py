@@ -10,7 +10,9 @@ class GmailAnalysisResponse(BaseModel):
     
     Attributes:
         analysis_id: Unique identifier for this analysis (UUID)
-        result: Analysis result text in markdown format
+        result: Analysis result text in markdown format (for backward compatibility)
+        structured_result: Structured analysis result with typed fields (optional)
+        token_usage: Aggregated token usage statistics across all tasks (optional)
         parameters: Input parameters used for the analysis
         timestamp: When the analysis was completed (UTC)
         execution_time_seconds: Time taken to complete the analysis
@@ -22,7 +24,15 @@ class GmailAnalysisResponse(BaseModel):
     )
     result: str = Field(
         ...,
-        description="Analysis result text (markdown formatted)"
+        description="Analysis result text (markdown formatted) - for backward compatibility"
+    )
+    structured_result: Optional[dict] = Field(
+        None,
+        description="Structured analysis result with typed fields"
+    )
+    token_usage: Optional[dict] = Field(
+        None,
+        description="Aggregated token usage statistics across all tasks"
     )
     parameters: dict = Field(
         ...,

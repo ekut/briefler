@@ -235,6 +235,304 @@ crewai plot
 python examples/gmail_crew_example.py
 ```
 
+## Structured Task Outputs
+
+The Gmail Reader Crew uses structured task outputs powered by Pydantic models, providing type-safe, validated, and programmatically accessible data throughout the agent workflow. This replaces unstructured string outputs with deterministic data structures.
+
+### Overview
+
+All three tasks (CleanupTask, VisionTask, and AnalysisTask) return Pydantic models that can be accessed via:
+- **`.pydantic`**: Direct Pydantic model instance with full type safety
+- **`.json_dict`**: Dictionary representation for JSON serialization
+- **`.raw`**: String representation (maintained for backward compatibility)
+
+### Task Output Models
+
+#### CleanupTaskOutput
+
+Returned by the email cleanup task:
+
+```python
+{
+  "emails": [
+    {
+      "subject": "Meeting Tomorrow",
+      "sender": "colleague@company.com",
+      "timestamp": "2025-11-19T10:30:00Z",
+      "body": "Cleaned email body with boilerplate removed...",
+      "image_urls": ["https://example.com/image1.jpg"]
+    }
+  ],
+  "total_count": 5,
+  "token_usage": {
+    "total_tokens": 1250,
+    "prompt_tokens": 950,
+    "completion_tokens": 300
+  }
+}
+```
+
+#### VisionTaskOutput
+
+Returned by the image text extraction task:
+
+```python
+{
+  "extracted_texts": [
+    {
+      "image_url": "https://example.com/banner.jpg",
+      "extracted_text": "Special Offer: 50% Off Today Only!",
+      "has_text": true
+    }
+  ],
+  "total_images_processed": 3,
+  "images_with_text": 2,
+  "token_usage": {
+    "total_tokens": 850,
+    "prompt_tokens": 600,
+    "completion_tokens": 250
+  }
+}
+```
+
+#### AnalysisTaskOutput
+
+Returned by the final analysis task:
+
+```python
+{
+  "total_count": 5,
+  "email_summaries": [
+    {
+      "subject": "Project Update",
+      "sender": "manager@company.com",
+      "timestamp": "2025-11-19T14:00:00Z",
+      "key_points": [
+        "Q4 deadline moved to December 15",
+        "New team member joining next week"
+      ],
+      "action_items": [
+        "Update project timeline",
+        "Prepare onboarding materials"
+      ],
+      "has_deadline": true
+    }
+  ],
+  "action_items": [
+    "Update project timeline",
+    "Prepare onboarding materials",
+    "Review budget proposal"
+  ],
+  "priority_assessment": "High - Multiple time-sensitive items require immediate attention",
+  "summary_text": "# Email Analysis\n\n## Summary\n...",
+  "token_usage": {
+    "total_tokens": 2100,
+    "prompt_tokens": 1500,
+    "completion_tokens": 600
+  }
+}
+```
+
+### TokenUsage Model
+
+All task outputs include optional token usage statistics for cost monitoring:
+
+```python
+{
+  "total_tokens": 1250,      # Total tokens used (prompt + completion)
+  "prompt_tokens": 950,       # Tokens in the prompt
+  "completion_tokens": 300    # Tokens in the completion
+}
+```
+
+**Use Cases:**
+- Monitor LLM API costs per analysis
+- Identify workflows with high token consumption
+- Optimize prompts based on usage patterns
+- Track token usage trends over time
+
+### Accessing Structured Data
+
+#### In Python Code
+
+```python
+from briefler.flows.gmail_read_flow import GmailReadFlow
+
+# Execute flow
+flow = GmailReadFlow()
+flow.kickoff({
+    "crewai_trigger_payload": {
+        "sender_emails": ["user@example.com"],
+        "language": "en",
+        "days": 7
+    }
+})
+
+# Access structured result
+if flow.state.structured_result:
+    # Type-safe access to fields
+    total_emails = flow.state.structured_result.total_count
+    action_items = flow.state.structured_result.action_items
+    
+    # Iterate through email summaries
+    for summary in flow.state.structured_result.email_summaries:
+        print(f"Subject: {summary.subject}")
+        print(f"Sender: {summary.sender}")
+        print(f"Key Points: {', '.join(summary.key_points)}")
+        if summary.has_deadline:
+            print("⚠️ Time-sensitive!")
+
+# Access token usage
+if flow.state.total_token_usage:
+    print(f"Total tokens used: {flow.state.total_token_usage.total_tokens}")
+    print(f"Prompt tokens: {flow.state.total_token_usage.prompt_tokens}")
+    print(f"Completion tokens: {flow.state.total_token_usage.completion_tokens}")
+
+# Backward compatibility - raw result still available
+markdown_result = flow.state.result
+```
+
+#### Via API
+
+When using the FastAPI backend, structured data is included in API responses:
+
+```bash
+curl -X POST http://localhost:8000/api/flows/gmail-read \
+  -H "Content-Type: application/json" \
+  -d '{
+    "sender_emails": ["user@example.com"],
+    "language": "en",
+    "days": 7
+  }'
+```
+
+**Response:**
+
+```json
+{
+  "analysis_id": "550e8400-e29b-41d4-a716-446655440000",
+  "result": "# Email Analysis\n\n## Summary\n...",
+  "structured_result": {
+    "total_count": 5,
+    "email_summaries": [
+      {
+        "subject": "Project Update",
+        "sender": "manager@company.com",
+        "timestamp": "2025-11-19T14:00:00Z",
+        "key_points": ["Q4 deadline moved", "New team member"],
+        "action_items": ["Update timeline", "Prepare materials"],
+        "has_deadline": true
+      }
+    ],
+    "action_items": ["Update timeline", "Prepare materials"],
+    "priority_assessment": "High",
+    "summary_text": "# Email Analysis..."
+  },
+  "token_usage": {
+    "total_tokens": 4200,
+    "prompt_tokens": 3050,
+    "completion_tokens": 1150
+  },
+  "parameters": {
+    "sender_emails": ["user@example.com"],
+    "language": "en",
+    "days": 7
+  },
+  "timestamp": "2025-11-19T10:30:00Z",
+  "execution_time_seconds": 45.2
+}
+```
+
+#### Programmatic API Access
+
+```python
+import requests
+
+# Execute analysis
+response = requests.post(
+    "http://localhost:8000/api/flows/gmail-read",
+    json={
+        "sender_emails": ["user@example.com"],
+        "language": "en",
+        "days": 7
+    }
+)
+
+data = response.json()
+
+# Access structured data
+if "structured_result" in data and data["structured_result"]:
+    structured = data["structured_result"]
+    
+    # Extract specific information
+    total_emails = structured["total_count"]
+    all_action_items = structured["action_items"]
+    priority = structured["priority_assessment"]
+    
+    # Process email summaries
+    for email in structured["email_summaries"]:
+        print(f"\n📧 {email['subject']}")
+        print(f"From: {email['sender']}")
+        print(f"Date: {email['timestamp']}")
+        
+        if email["key_points"]:
+            print("\nKey Points:")
+            for point in email["key_points"]:
+                print(f"  • {point}")
+        
+        if email["action_items"]:
+            print("\nAction Items:")
+            for item in email["action_items"]:
+                print(f"  ✓ {item}")
+        
+        if email["has_deadline"]:
+            print("\n⚠️ Time-sensitive email!")
+
+# Monitor token usage
+if "token_usage" in data and data["token_usage"]:
+    usage = data["token_usage"]
+    print(f"\n💰 Token Usage:")
+    print(f"  Total: {usage['total_tokens']}")
+    print(f"  Prompt: {usage['prompt_tokens']}")
+    print(f"  Completion: {usage['completion_tokens']}")
+    
+    # Calculate approximate cost (example: GPT-4 pricing)
+    prompt_cost = usage['prompt_tokens'] * 0.00003  # $0.03 per 1K tokens
+    completion_cost = usage['completion_tokens'] * 0.00006  # $0.06 per 1K tokens
+    total_cost = prompt_cost + completion_cost
+    print(f"  Estimated cost: ${total_cost:.4f}")
+
+# Backward compatibility - markdown result still available
+markdown_text = data["result"]
+```
+
+### Backward Compatibility
+
+The structured output implementation maintains full backward compatibility:
+
+- **`result` field**: Still contains the full markdown-formatted analysis text
+- **`flow.state.result`**: Still accessible in Flow code
+- **Existing tests**: Continue to pass without modification
+- **API consumers**: Can continue using the `result` field without changes
+
+New `structured_result` and `token_usage` fields are optional additions that don't break existing integrations.
+
+### Error Handling
+
+If structured output extraction fails (e.g., validation errors), the system gracefully falls back to raw output:
+
+```python
+# In Flow
+try:
+    if hasattr(result, 'pydantic') and result.pydantic:
+        self.state.structured_result = result.pydantic
+except Exception as e:
+    logger.warning(f"Could not extract structured result: {e}")
+    # Flow continues with raw result only
+```
+
+The API will still return a successful response with the `result` field populated, but `structured_result` will be `null`.
+
 ## CrewAI Resources
 
 - [CrewAI Documentation](https://docs.crewai.com)
